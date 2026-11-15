@@ -15,6 +15,14 @@
 
 ## Quick start
 
+The default dictionary path is `/usr/share/dict/words`. Install the Arch `words` package if the file is missing:
+
+```bash
+sudo pacman -S --needed words
+```
+
+Then run:
+
 ```bash
 ./bin/omarchy-lexicon --wordlist /usr/share/dict/words --length 5 --sort alpha
 ./bin/omarchy-lexicon --pattern "s.a.e" --sort alpha
@@ -25,6 +33,65 @@
 ./bin/omarchy-lexicon --pattern "s.a.e" --copy --definition
 ./bin/omarchy-lexicon --config ./config/default.conf
 ```
+
+## Installation
+
+### Option 1: install from this checkout
+
+```bash
+git clone https://github.com/jasonwheritage/omarchy-lexicon.git
+cd omarchy-lexicon
+./install.sh
+```
+
+By default, this installs:
+
+- `omarchy-lexicon` to `/usr/local/bin`
+- `omarchy-lexicon-walker` to `/usr/local/bin`
+- runtime modules to `/usr/local/lib/omarchy-lexicon`
+- default config to `/usr/local/etc/omarchy-lexicon/default.conf`
+
+To install to a different prefix:
+
+```bash
+PREFIX="$HOME/.local" ./install.sh
+```
+
+### Option 2: build/install with PKGBUILD (Arch)
+
+```bash
+makepkg -si
+```
+
+This installs the package-managed files to system paths such as `/usr/bin/omarchy-lexicon`.
+
+## Using the Walker launcher
+
+The Walker wrapper provides interactive selection via `walker --dmenu`:
+
+```bash
+omarchy-lexicon-walker
+```
+
+Recommended dependencies for full launcher behavior:
+
+- `walker` (menu UI)
+- `wl-clipboard` (`wl-copy` / `wl-paste`)
+- optional: `dictd` + dictionaries for definition/synonym output
+
+Useful environment overrides:
+
+- `LEXICON_WORDLIST=/path/to/words.txt` to choose the word list
+- `LEXICON_CONFIG=/path/to/default.conf` to choose a config file
+- `LEXICON_SYNONYMS=1` to include thesaurus output after selecting a word
+
+Example:
+
+```bash
+LEXICON_WORDLIST=/usr/share/dict/words LEXICON_SYNONYMS=1 omarchy-lexicon-walker
+```
+
+If `wl-copy` is installed, the selected word is copied to the clipboard. If `dict` is installed, the selected word's definition is shown; dictionary lookup failures are non-blocking.
 
 ## Wordlists and optional dictionaries
 
@@ -77,6 +144,8 @@ omarchy-lexicon/
 │   └── keybinds.conf
 ├── docs/
 │   ├── INBOX.md
+│   ├── RELEASE_NOTES.md
+│   ├── UAT.md
 │   └── plan/
 │       └── plan.md
 ├── tests/
@@ -186,3 +255,7 @@ This enables a fast, keyboard-first lookup loop similar to a launcher-driven wor
 ## User acceptance testing
 
 For manual release validation and recorded results, follow the UAT procedure in [docs/UAT.md](./docs/UAT.md).
+
+## Release notes
+
+First package publication notes are tracked in [docs/RELEASE_NOTES.md](./docs/RELEASE_NOTES.md).

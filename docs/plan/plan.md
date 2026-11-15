@@ -106,8 +106,11 @@ Use these checkpoints to track implementation status during development:
 - The project should stay lightweight and keyboard-first, matching Omarchy’s philosophy rather than adding a heavyweight UI stack prematurely.
 
 ## Immediate next actions
-1. Validate end-to-end flow against a real local dictionary and walker launcher.
-2. Prepare release notes for first package publication.
-3. Evaluate whether native Omarchy shell plugin work should begin based on user feedback.
+1. [x] Validate end-to-end flow against a real local dictionary and walker launcher.
+   - Completed in [docs/UAT.md](../UAT.md): all 13 acceptance tests passed (15 November 2026), including local `dictd` and Walker launcher checks.
+2. [x] Prepare release notes for first package publication.
+   - Completed in [docs/RELEASE_NOTES.md](../RELEASE_NOTES.md).
+3. [x] Evaluate whether native Omarchy shell plugin work should begin based on user feedback.
+   - Decision: defer native plugin work for now. Current feedback confirms the CLI + Walker flow meets launch goals; revisit plugin work only if users request richer UI behavior that cannot be solved with the existing wrapper.
 
 This plan intentionally prioritizes a working, releaseable prototype with a clear upgrade path to a native Omarchy plugin if product feedback justifies it.

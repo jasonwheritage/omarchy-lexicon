@@ -49,7 +49,14 @@ fi
 
 FILTERED="$("$ROOT/bin/omarchy-lexicon" "${ARGS[@]}" 2>/dev/null || true)"
 if [ -z "$FILTERED" ]; then
-  echo "No words matched the current filters." >&2
+  if [ -n "${WORDLIST}" ] && [ ! -e "$WORDLIST" ]; then
+    echo "Word list not found: $WORDLIST" >&2
+    echo "Install the 'words' package: sudo pacman -S --needed words" >&2
+  elif [ ! -e /usr/share/dict/words ] && [ ! -e /usr/share/dict/words.txt ] && [ ! -e /usr/share/dict/cracklib-small ]; then
+    echo "No word list found. Install the 'words' package: sudo pacman -S --needed words" >&2
+  else
+    echo "No words matched the current filters." >&2
+  fi
   exit 1
 fi
 

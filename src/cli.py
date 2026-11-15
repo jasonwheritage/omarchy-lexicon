@@ -133,7 +133,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             words = finder.load_words(args.wordlist)
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+        message = str(exc)
+        if "Word list not found" in message:
+            print(f"{message}", file=sys.stderr)
+            print("Install the 'words' package: sudo pacman -S --needed words", file=sys.stderr)
+        else:
+            print(message, file=sys.stderr)
         return 1
 
     try:

@@ -12,7 +12,7 @@ pkgrel=1
 pkgdesc="Offline word finder and dictionary utility for word games"
 arch=('any')
 license=('MIT')
-depends=('python' 'wl-clipboard')
+depends=('python' 'wl-clipboard' 'words')
 source=("git+https://github.com/jasonwheritage/omarchy-lexicon.git")
 sha256sums=('SKIP')
 

@@ -17,6 +17,11 @@ install -m644 "${ROOT_DIR}/config/default.conf" "${CONFIG_DIR}/default.conf"
 install -m644 "${ROOT_DIR}/config/keybinds.conf" "${CONFIG_DIR}/keybinds.conf"
 install -m644 "${ROOT_DIR}/README.md" "${DOC_DIR}/README.md"
 
+if [ ! -e /usr/share/dict/words ] && [ ! -e /usr/share/dict/words.txt ] && command -v pacman >/dev/null 2>&1; then
+  printf 'Note: install the Arch package "words" to provide /usr/share/dict/words for the default wordlist.\n' >&2
+  printf 'Example: sudo pacman -S --needed words\n' >&2
+fi
+
 if [ -d "${KEYBIND_TARGET_DIR}" ]; then
   install -m644 "${ROOT_DIR}/config/keybinds.conf" "${KEYBIND_TARGET_DIR}/omarchy-lexicon.conf"
 fi

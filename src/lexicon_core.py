@@ -5,7 +5,13 @@ import re
 from collections import Counter
 from typing import Iterable, List, Sequence
 
-DEFAULT_WORDLIST = "/usr/share/dict/words"
+DEFAULT_WORDLIST_CANDIDATES = (
+    "/usr/share/dict/words",
+    "/usr/share/dict/words.txt",
+    "/usr/share/dict/cracklib-small",
+    "/usr/share/cracklib/cracklib-small",
+)
+DEFAULT_WORDLIST = next((path for path in DEFAULT_WORDLIST_CANDIDATES if os.path.exists(path)), "/usr/share/dict/words")
 SCRABBLE_SCORES: dict[str, int] = {
     "a": 1,
     "b": 3,
