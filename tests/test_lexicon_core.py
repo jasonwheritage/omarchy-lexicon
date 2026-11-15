@@ -29,6 +29,16 @@ class WordFinderTests(unittest.TestCase):
         result = finder.filter_words(self.words, pattern="a..le")
         self.assertEqual(result, ["apple"])
 
+    def test_pattern_substring_filter(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.filter_words(self.words, pattern="ang", pattern_mode="substring")
+        self.assertEqual(result, ["orange"])
+
+    def test_pattern_regex_filter(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.filter_words(self.words, pattern="^t.*s$", pattern_mode="regex")
+        self.assertEqual(result, ["tares", "tears"])
+
     def test_rack_filter(self):
         finder = WordFinder(self.tempfile.name)
         result = finder.filter_words(self.words, rack="aerst")
@@ -38,6 +48,16 @@ class WordFinderTests(unittest.TestCase):
         finder = WordFinder(self.tempfile.name)
         result = finder.sort_words(["pear", "apple", "orange"], mode="length_asc")
         self.assertEqual(result, ["pear", "apple", "orange"])
+
+    def test_min_max_length_filter(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.filter_words(self.words, min_length=5, max_length=5)
+        self.assertEqual(result, ["apple", "grape", "stare", "tares", "tears", "rates"])
+
+    def test_score_sort_mode(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.sort_words(["quiz", "apple", "pear"], mode="score_desc")
+        self.assertEqual(result, ["quiz", "apple", "pear"])
 
 
 if __name__ == "__main__":

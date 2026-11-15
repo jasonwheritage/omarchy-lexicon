@@ -7,6 +7,8 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SRC = os.path.join(ROOT, "src")
+if not os.path.isfile(os.path.join(SRC, "cli.py")):
+    SRC = os.path.join(ROOT, "lib", "omarchy-lexicon")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 

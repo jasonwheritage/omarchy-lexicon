@@ -72,7 +72,8 @@ omarchy-lexicon/
 - Add a keybinding (`SUPER SHIFT, D` is a sensible default) to launch the word finder without disrupting the workflow.
 
 ### Milestone 3: dictionary lookup and definition flow
-- Check whether `dictd` and `dict-wn` are installed and available on the system.
+- Keep definitions optional; use independently configured dictionary and thesaurus database names with local `dictd`.
+- For Omarchy 4, recommend `sudo pacman -S dictd` and optionally `yay -S wordnet-dictd dict-gcide dict-moby-thesaurus`; other compatible databases remain supported.
 - When a word is selected, copy it to the system clipboard using `wl-copy`.
 - Attempt a local dictionary lookup and show the result in a follow-up notification or overlay.
 - Fail gracefully if no dictionary service is installed, showing a clear message rather than blocking the workflow.
@@ -84,15 +85,29 @@ omarchy-lexicon/
 - Ensure the binary naming follows the required convention: `/usr/bin/omarchy-lexicon`.
 - For any plugin packaging path, ensure the manifest ID avoids the reserved `omarchy.` prefix.
 
+## Progress checkpoints
+
+Use these checkpoints to track implementation status during development:
+
+- [x] Checkpoint 1 — Scaffold repository layout and CLI entrypoint.
+- [x] Checkpoint 2 — Implement filtering engine (exact length, wildcard/regex, rack letters) with tests.
+- [x] Checkpoint 3 — Wire launcher workflow through `walker --dmenu`.
+- [x] Checkpoint 4 — Add dictionary lookup flow with graceful fallback when `dict` is unavailable.
+- [x] Checkpoint 5 — Add config-driven defaults (`--config` and `/etc/omarchy-lexicon/default.conf`).
+- [x] Checkpoint 6 — Add Scrabble score sorting and min/max length preference toggles.
+- [x] Checkpoint 7 — Package binaries and default config in `PKGBUILD`.
+- [x] Checkpoint 8 — Add keybinding installer/config for Omarchy (`SUPER SHIFT, D`).
+- [x] Checkpoint 9 — Configure optional local dictionary and thesaurus databases independently; verify lookups and failures.
+- [x] Checkpoint 10 — User acceptance testing of local dictionary, thesaurus and Walker integration.
+
 ## Risk and compatibility notes
 - Offline dictionary sources can vary by distro; the script should treat `/usr/share/dict/words` as the default but allow overrides.
-- `dictd`/`dict-wn` availability may be inconsistent on minimal installations; fallback messaging is required.
+- `dictd` and its databases may be unavailable or unconfigured; word searches must still work and lookup failures must be clear.
 - The project should stay lightweight and keyboard-first, matching Omarchy’s philosophy rather than adding a heavyweight UI stack prematurely.
 
 ## Immediate next actions
-1. Scaffold the repository layout and a minimal CLI entrypoint.
-2. Implement the word filtering engine and test it against a sample dictionary.
-3. Wire the launcher overlay to `walker --dmenu` and verify the live selection flow.
-4. Add packaging metadata and install instructions for AUR/GitHub release usage.
+1. Validate end-to-end flow against a real local dictionary and walker launcher.
+2. Prepare release notes for first package publication.
+3. Evaluate whether native Omarchy shell plugin work should begin based on user feedback.
 
 This plan intentionally prioritizes a working, releaseable prototype with a clear upgrade path to a native Omarchy plugin if product feedback justifies it.

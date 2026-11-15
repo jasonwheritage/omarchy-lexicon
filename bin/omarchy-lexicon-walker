@@ -2,20 +2,38 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORDLIST="${LEXICON_WORDLIST:-/usr/share/dict/words}"
-SORT_MODE="${LEXICON_SORT_MODE:-alpha}"
+WORDLIST="${LEXICON_WORDLIST:-}"
+SORT_MODE="${LEXICON_SORT_MODE:-}"
 LENGTH="${LEXICON_LENGTH:-}"
+MIN_LENGTH="${LEXICON_MIN_LENGTH:-}"
+MAX_LENGTH="${LEXICON_MAX_LENGTH:-}"
 PATTERN="${LEXICON_PATTERN:-}"
 RACK="${LEXICON_RACK:-}"
+CONFIG_PATH="${LEXICON_CONFIG:-}"
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "Python 3 is required for omarchy-lexicon." >&2
   exit 1
 fi
 
-ARGS=(--wordlist "$WORDLIST" --sort "$SORT_MODE")
+ARGS=()
+if [ -n "$CONFIG_PATH" ]; then
+  ARGS+=(--config "$CONFIG_PATH")
+fi
+if [ -n "$WORDLIST" ]; then
+  ARGS+=(--wordlist "$WORDLIST")
+fi
+if [ -n "$SORT_MODE" ]; then
+  ARGS+=(--sort "$SORT_MODE")
+fi
 if [ -n "$LENGTH" ]; then
   ARGS+=(--length "$LENGTH")
+fi
+if [ -n "$MIN_LENGTH" ]; then
+  ARGS+=(--min-length "$MIN_LENGTH")
+fi
+if [ -n "$MAX_LENGTH" ]; then
+  ARGS+=(--max-length "$MAX_LENGTH")
 fi
 if [ -n "$PATTERN" ]; then
   ARGS+=(--pattern "$PATTERN")
@@ -44,6 +62,12 @@ printf '%s' "$SELECTED" | wl-copy 2>/dev/null || true
 printf '%s\n' "$SELECTED"
 
 if command -v dict >/dev/null 2>&1; then
-  echo "---" >&2
-  dict "$SELECTED" 2>/dev/null || true
+  LOOKUP_ARGS=(--lookup-word "$SELECTED" --definition)
+  if [ -n "$CONFIG_PATH" ]; then
+    LOOKUP_ARGS+=(--config "$CONFIG_PATH")
+  fi
+  if [ "${LEXICON_SYNONYMS:-0}" = "1" ]; then
+    LOOKUP_ARGS+=(--synonyms)
+  fi
+  "$ROOT/bin/omarchy-lexicon" "${LOOKUP_ARGS[@]}" || true
 fi

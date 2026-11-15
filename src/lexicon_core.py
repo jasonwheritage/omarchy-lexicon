@@ -6,6 +6,34 @@ from collections import Counter
 from typing import Iterable, List, Sequence
 
 DEFAULT_WORDLIST = "/usr/share/dict/words"
+SCRABBLE_SCORES: dict[str, int] = {
+    "a": 1,
+    "b": 3,
+    "c": 3,
+    "d": 2,
+    "e": 1,
+    "f": 4,
+    "g": 2,
+    "h": 4,
+    "i": 1,
+    "j": 8,
+    "k": 5,
+    "l": 1,
+    "m": 3,
+    "n": 1,
+    "o": 1,
+    "p": 3,
+    "q": 10,
+    "r": 1,
+    "s": 1,
+    "t": 1,
+    "u": 1,
+    "v": 4,
+    "w": 4,
+    "x": 8,
+    "y": 4,
+    "z": 10,
+}
 
 
 def normalize_word(word: str) -> str:
@@ -19,6 +47,10 @@ def wildcard_pattern_to_regex(pattern: str) -> re.Pattern[str]:
     escaped = escaped.replace(r"\?", ".")
     escaped = escaped.replace(r"\.", ".")
     return re.compile(r"^" + escaped + r"$")
+
+
+def score_word(word: str) -> int:
+    return sum(SCRABBLE_SCORES.get(letter, 0) for letter in word)
 
 
 class WordFinder:
@@ -43,17 +75,37 @@ class WordFinder:
         words: Sequence[str],
         *,
         length: int | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
         pattern: str | None = None,
+        pattern_mode: str = "auto",
         rack: str | None = None,
     ) -> List[str]:
         filtered = list(words)
 
         if length is not None:
             filtered = [word for word in filtered if len(word) == length]
+        if min_length is not None:
+            filtered = [word for word in filtered if len(word) >= min_length]
+        if max_length is not None:
+            filtered = [word for word in filtered if len(word) <= max_length]
 
         if pattern:
-            regex = wildcard_pattern_to_regex(pattern)
-            filtered = [word for word in filtered if regex.fullmatch(word)]
+            normalized_pattern = pattern.lower()
+            resolved_mode = pattern_mode
+            if pattern_mode == "auto":
+                resolved_mode = "wildcard" if any(token in pattern for token in (".", "*", "?")) else "substring"
+
+            if resolved_mode == "substring":
+                filtered = [word for word in filtered if normalized_pattern in word]
+            elif resolved_mode == "wildcard":
+                regex = wildcard_pattern_to_regex(normalized_pattern)
+                filtered = [word for word in filtered if regex.fullmatch(word)]
+            elif resolved_mode == "regex":
+                regex = re.compile(pattern, re.IGNORECASE)
+                filtered = [word for word in filtered if regex.search(word)]
+            else:
+                raise ValueError(f"Invalid pattern mode: {pattern_mode}")
 
         if rack:
             rack_counts = Counter(normalize_word(rack))
@@ -71,17 +123,32 @@ class WordFinder:
             return sorted(ordered, key=lambda item: (len(item), item))
         if mode == "length_desc":
             return sorted(ordered, key=lambda item: (-len(item), item))
+        if mode == "score_desc":
+            return sorted(ordered, key=lambda item: (-score_word(item), item))
+        if mode == "score_asc":
+            return sorted(ordered, key=lambda item: (score_word(item), item))
         return ordered
 
     def find_matches(
         self,
         *,
         length: int | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
         pattern: str | None = None,
+        pattern_mode: str = "auto",
         rack: str | None = None,
         sort: str = "alpha",
         wordlist_path: str | None = None,
     ) -> List[str]:
         words = self.load_words(wordlist_path)
-        filtered = self.filter_words(words, length=length, pattern=pattern, rack=rack)
+        filtered = self.filter_words(
+            words,
+            length=length,
+            min_length=min_length,
+            max_length=max_length,
+            pattern=pattern,
+            pattern_mode=pattern_mode,
+            rack=rack,
+        )
         return self.sort_words(filtered, mode=sort)

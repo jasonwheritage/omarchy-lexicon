@@ -20,6 +20,11 @@ package() {
     # The repo is checked out under $srcdir/omarchy-lexicon during makepkg.
     # These install commands make the prototype usable as a real system binary.
     install -Dm755 "$srcdir/omarchy-lexicon/bin/omarchy-lexicon" "$pkgdir/usr/bin/omarchy-lexicon"
+    install -Dm755 "$srcdir/omarchy-lexicon/bin/omarchy-lexicon-walker" "$pkgdir/usr/bin/omarchy-lexicon-walker"
+    for module in "$srcdir"/omarchy-lexicon/src/*.py; do
+        install -Dm644 "$module" "$pkgdir/usr/lib/omarchy-lexicon/$(basename "$module")"
+    done
     install -Dm644 "$srcdir/omarchy-lexicon/config/default.conf" "$pkgdir/etc/omarchy-lexicon/default.conf"
+    install -Dm644 "$srcdir/omarchy-lexicon/config/keybinds.conf" "$pkgdir/etc/omarchy-lexicon/keybinds.conf"
     install -Dm644 "$srcdir/omarchy-lexicon/README.md" "$pkgdir/usr/share/doc/omarchy-lexicon/README.md"
 }
