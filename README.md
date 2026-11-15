@@ -49,6 +49,7 @@ By default, this installs:
 - `omarchy-lexicon` to `/usr/local/bin`
 - runtime modules to `/usr/local/lib/omarchy-lexicon`
 - default config to `/usr/local/etc/omarchy-lexicon/default.conf`
+- a lightweight Omarchy plugin prototype to `$HOME/.config/omarchy/plugins/acme.lexicon`
 
 To install to a different prefix:
 
@@ -62,7 +63,26 @@ PREFIX="$HOME/.local" ./install.sh
 makepkg -si
 ```
 
-This installs the package-managed files to system paths such as `/usr/bin/omarchy-lexicon`.
+This installs the package-managed files to system paths such as `/usr/bin/omarchy-lexicon` and copies the plugin prototype into `/usr/share/omarchy-lexicon/plugins/acme.lexicon` for local installation or review.
+
+### Native Omarchy plugin prototype
+
+The project now ships a minimal native plugin prototype that matches the required Omarchy UX direction without adding a second Quickshell process:
+
+```text
+~/.config/omarchy/plugins/acme.lexicon/
+├── manifest.json
+├── LexiconOverlay.qml
+└── search.py
+```
+
+The frontend is intentionally small: a single overlay with a search field and results list. It calls the Python backend through `search.py`, which shells out to `omarchy-lexicon --json` for the actual word filtering logic. This keeps the UI layer thin and the filtering engine reusable.
+
+To install or refresh the plugin in an active Omarchy user config:
+
+```bash
+PLUGIN_TARGET_DIR="$HOME/.config/omarchy/plugins/acme.lexicon" ./install.sh
+```
 
 ## Advanced search usage
 
@@ -75,6 +95,10 @@ omarchy-lexicon --min-length 6 --max-length 8
 ```
 
 This project intentionally does not ship a `walker`-based pseudo-UI, because `walker` is a selector and cannot provide the rich search UX needed for full pattern, rack, and dictionary work. The long-term path is a native Omarchy plugin or shell integration with a proper search form and richer presentation.
+
+## Architecture
+
+The native Omarchy plugin design and lightweight system model are documented in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Wordlists and optional dictionaries
 

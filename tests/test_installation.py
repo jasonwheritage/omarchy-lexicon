@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import tempfile
@@ -13,7 +14,7 @@ class InstallationTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.env = {key: value for key, value in os.environ.items()
-                    if not key.startswith("LEXICON_") and key != "PYTHONPATH"}
+                    if not key.startswith("LEXICON_") and key not in {"PYTHONPATH", "XDG_CONFIG_HOME"}}
         self.env.update(PYTHONDONTWRITEBYTECODE="1", HOME=str(self.root), PATH="/usr/bin:/bin")
 
     def check_cli(self, prefix, extra_args=()):
@@ -36,6 +37,61 @@ class InstallationTests(unittest.TestCase):
                                 cwd=self.root, env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "pear\n")
+
+    def test_install_script_installs_plugin_assets(self):
+        prefix = self.root / "prefix"
+        plugin_target = self.root / "plugin"
+        env = dict(self.env, PREFIX=str(prefix), PLUGIN_TARGET_DIR=str(plugin_target), PATH=f"{prefix / 'bin'}:/usr/bin:/bin")
+        subprocess.run([str(ROOT / "install.sh")], cwd=self.root, env=env, check=True, capture_output=True)
+
+        manifest = plugin_target / "manifest.json"
+        self.assertTrue(manifest.exists())
+        self.assertTrue((plugin_target / "LexiconOverlay.qml").exists())
+        self.assertTrue((plugin_target / "search.py").exists())
+
+        result = subprocess.run([
+            "python3",
+            str(plugin_target / "search.py"),
+            "--query",
+            "app",
+            "--limit",
+            "5",
+        ], cwd=self.root, env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("results", payload)
+
+    def test_install_script_defaults_to_user_local_prefix(self):
+        home = self.root / "home"
+        home.mkdir()
+        env = dict(self.env, HOME=str(home), PREFIX=str(home / ".local"))
+        subprocess.run([str(ROOT / "install.sh")], cwd=self.root, env=env, check=True, capture_output=True)
+
+        self.assertTrue((home / ".local" / "bin" / "omarchy-lexicon").exists())
+        self.assertTrue((home / ".config" / "omarchy" / "plugins" / "acme.lexicon" / "manifest.json").exists())
+
+    def test_install_script_respects_xdg_config_home_and_destdir(self):
+        home = self.root / "home"
+        xdg = self.root / "xdg"
+        env = dict(self.env, HOME=str(home), XDG_CONFIG_HOME=str(xdg), PREFIX="/usr/local")
+        subprocess.run([str(ROOT / "install.sh")], cwd=self.root, env=env, check=True, capture_output=True)
+        self.assertTrue((xdg / "omarchy" / "plugins" / "acme.lexicon" / "manifest.json").exists())
+
+        destdir = self.root / "staging"
+        env = dict(self.env, HOME=str(home), DESTDIR=str(destdir), PREFIX="/usr/local")
+        subprocess.run([str(ROOT / "install.sh")], cwd=self.root, env=env, check=True, capture_output=True)
+        self.assertTrue((destdir / "usr" / "local" / "bin" / "omarchy-lexicon").exists())
+        self.assertFalse((home / ".config" / "omarchy" / "plugins" / "acme.lexicon").exists())
+
+    def test_install_script_preserves_existing_default_config(self):
+        prefix = self.root / "prefix"
+        config_dir = prefix / "etc" / "omarchy-lexicon"
+        config_dir.mkdir(parents=True)
+        config_path = config_dir / "default.conf"
+        config_path.write_text("KEEP_ME=1\n", encoding="utf-8")
+        env = dict(self.env, PREFIX=str(prefix))
+        subprocess.run([str(ROOT / "install.sh")], cwd=self.root, env=env, check=True, capture_output=True)
+        self.assertEqual(config_path.read_text(encoding="utf-8"), "KEEP_ME=1\n")
 
     def test_pkgbuild_installs_runnable_cli(self):
         srcdir = self.root / "source"

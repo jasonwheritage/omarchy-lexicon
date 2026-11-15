@@ -104,4 +104,6 @@ Use these checkpoints to track implementation status during development:
 2. [ ] Reuse the validated CLI engine as the plugin backend and keep the user-facing UX rich and Omarchy-native.
 3. [ ] Publish the CLI package only as a support layer while the plugin remains the primary end-user product.
 
+For the detailed lightweight architecture and plugin conventions, see [../ARCHITECTURE.md](../ARCHITECTURE.md).
+
 This plan intentionally prioritizes a native Omarchy plugin as the required user experience; the CLI remains useful for testing, packaging, and automation, but not as the product’s final UX.

@@ -1,0 +1,12 @@
+{
+  "id": "acme.lexicon",
+  "name": "Lexicon",
+  "version": "0.1.0",
+  "kinds": ["overlay"],
+  "entryPoints": {
+    "overlay": "LexiconOverlay.qml"
+  },
+  "description": "Keyboard-first Omarchy overlay for offline word lookup.",
+  "author": "omarchy-lexicon",
+  "license": "MIT"
+}

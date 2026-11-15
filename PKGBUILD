@@ -18,11 +18,18 @@ sha256sums=('SKIP')
 
 package() {
     # The repo is checked out under $srcdir/omarchy-lexicon during makepkg.
-    # These install commands make the CLI usable as a real system binary.
     install -Dm755 "$srcdir/omarchy-lexicon/bin/omarchy-lexicon" "$pkgdir/usr/bin/omarchy-lexicon"
     for module in "$srcdir"/omarchy-lexicon/src/*.py; do
         install -Dm644 "$module" "$pkgdir/usr/lib/omarchy-lexicon/$(basename "$module")"
     done
     install -Dm644 "$srcdir/omarchy-lexicon/config/default.conf" "$pkgdir/etc/omarchy-lexicon/default.conf"
     install -Dm644 "$srcdir/omarchy-lexicon/README.md" "$pkgdir/usr/share/doc/omarchy-lexicon/README.md"
+
+    install -d "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/manifest.json" \
+        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/manifest.json"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/LexiconOverlay.qml" \
+        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/LexiconOverlay.qml"
+    install -Dm755 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/search.py" \
+        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/search.py"
 }
