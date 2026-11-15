@@ -70,6 +70,24 @@ Example flow:
 
 This wrapper is the bridge between the repository layout and the eventual installed binary path (`/usr/bin/omarchy-lexicon`).
 
+### `bin/omarchy-lexicon-walker`
+
+The second milestone adds a launcher wrapper at [bin/omarchy-lexicon-walker](bin/omarchy-lexicon-walker). It is designed to fit the intended Omarchy workflow:
+
+```bash
+./bin/omarchy-lexicon-walker
+```
+
+The script:
+
+- Builds the matching arguments for the underlying CLI.
+- Generates the filtered word list using the repository's dictionary logic.
+- Passes that list to `walker --dmenu` for live keyboard selection.
+- Copies the selected result to the clipboard with `wl-copy`.
+- Optionally prints a local dictionary definition if `dict` is available.
+
+This is the first real bridge from the text-mode engine to the in-application launcher UX that Omarchy users expect.
+
 ### `PKGBUILD`
 
 The Arch package file in [PKGBUILD](PKGBUILD) is a first-pass packaging milestone. It is designed to install the runtime files into the system paths an Omarchy user expects:
@@ -90,7 +108,7 @@ The current `PKGBUILD` is a stepping stone: it installs the working CLI, defines
 
 ## Planned Omarchy integration
 
-The current implementation is a working CLI prototype for the repository's recommended first milestone. The intended overlay flow is:
+The current implementation is a working CLI prototype for the repository's recommended first milestone and a launcher-friendly second milestone. The intended overlay flow is:
 
 ```bash
 omarchy-lexicon --length 5 --sort alpha | walker --dmenu
