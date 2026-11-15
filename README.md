@@ -1,6 +1,6 @@
 # omarchy-lexicon
 
-`omarchy-lexicon` is a keyboard-first offline word finder for word games. It filters a local dictionary by exact length, wildcard patterns, and rack-letter availability, then prints sorted results for use with `walker --dmenu` or other launcher workflows.
+`omarchy-lexicon` is a keyboard-first offline word finder for word games. It filters a local dictionary by exact length, wildcard patterns, and rack-letter availability, then prints sorted results for CLI-driven lookup and future Omarchy-native UX.
 
 ## Features
 
@@ -47,7 +47,6 @@ cd omarchy-lexicon
 By default, this installs:
 
 - `omarchy-lexicon` to `/usr/local/bin`
-- `omarchy-lexicon-walker` to `/usr/local/bin`
 - runtime modules to `/usr/local/lib/omarchy-lexicon`
 - default config to `/usr/local/etc/omarchy-lexicon/default.conf`
 
@@ -65,33 +64,17 @@ makepkg -si
 
 This installs the package-managed files to system paths such as `/usr/bin/omarchy-lexicon`.
 
-## Using the Walker launcher
+## Advanced search usage
 
-The Walker wrapper provides interactive selection via `walker --dmenu`:
-
-```bash
-omarchy-lexicon-walker
-```
-
-Recommended dependencies for full launcher behavior:
-
-- `walker` (menu UI)
-- `wl-clipboard` (`wl-copy` / `wl-paste`)
-- optional: `dictd` + dictionaries for definition/synonym output
-
-Useful environment overrides:
-
-- `LEXICON_WORDLIST=/path/to/words.txt` to choose the word list
-- `LEXICON_CONFIG=/path/to/default.conf` to choose a config file
-- `LEXICON_SYNONYMS=1` to include thesaurus output after selecting a word
-
-Example:
+Use the CLI for the full feature set:
 
 ```bash
-LEXICON_WORDLIST=/usr/share/dict/words LEXICON_SYNONYMS=1 omarchy-lexicon-walker
+omarchy-lexicon --rack aeinrst --sort score_desc
+omarchy-lexicon --pattern '^t.*s$' --pattern-mode regex
+omarchy-lexicon --min-length 6 --max-length 8
 ```
 
-If `wl-copy` is installed, the selected word is copied to the clipboard. If `dict` is installed, the selected word's definition is shown; dictionary lookup failures are non-blocking.
+This project intentionally does not ship a `walker`-based pseudo-UI, because `walker` is a selector and cannot provide the rich search UX needed for full pattern, rack, and dictionary work. The long-term path is a native Omarchy plugin or shell integration with a proper search form and richer presentation.
 
 ## Wordlists and optional dictionaries
 
@@ -119,8 +102,6 @@ A `dictd.conf` parse error can mean no database is configured; see the [ArchWiki
 ./bin/omarchy-lexicon --lookup-word happy --synonyms --thesaurus moby-thesaurus
 ```
 
-The Walker wrapper looks up the selected word's definition when `dict` is installed; set `LEXICON_SYNONYMS=1` to also show similar words in its output. Dictionary failures do not stop word searches.
-
 ## Repository layout
 
 ```text
@@ -130,8 +111,7 @@ omarchy-lexicon/
 ├── PKGBUILD
 ├── install.sh
 ├── bin/
-│   ├── omarchy-lexicon
-│   └── omarchy-lexicon-walker
+│   └── omarchy-lexicon
 ├── src/
 │   ├── cli.py
 │   ├── dict_lookup.py
@@ -140,8 +120,7 @@ omarchy-lexicon/
 │   ├── sorters.py
 │   └── __init__.py
 ├── config/
-│   ├── default.conf
-│   └── keybinds.conf
+│   └── default.conf
 ├── docs/
 │   ├── INBOX.md
 │   ├── RELEASE_NOTES.md
@@ -178,23 +157,16 @@ Example flow:
 
 This wrapper is the bridge between the repository layout and the eventual installed binary path (`/usr/bin/omarchy-lexicon`).
 
-### `bin/omarchy-lexicon-walker`
+### Native Omarchy plugin requirement
 
-The second milestone adds a launcher wrapper at [bin/omarchy-lexicon-walker](bin/omarchy-lexicon-walker). It is designed to fit the intended Omarchy workflow:
+The current CLI is the correct foundation for the project, but it is not a substitute for a rich Omarchy UX. The project now explicitly requires a native Omarchy plugin or shell integration with:
 
-```bash
-./bin/omarchy-lexicon-walker
-```
+- a dedicated search form for pattern, rack, and length filters
+- richer result presentation than a simple `walker --dmenu` menu
+- optional definition/synonym display in the same overlay
+- keyboard-first interactions consistent with Omarchy’s shell and app patterns
 
-The script:
-
-- Builds the matching arguments for the underlying CLI.
-- Generates the filtered word list using the repository's dictionary logic.
-- Passes that list to `walker --dmenu` for live keyboard selection.
-- Copies the selected result to the clipboard with `wl-copy`.
-- Optionally prints a local dictionary definition if `dict` is available.
-
-This is the first real bridge from the text-mode engine to the in-application launcher UX that Omarchy users expect.
+This is the product requirement that replaces the `walker` shim as the intended user-facing experience.
 
 ### `PKGBUILD`
 
@@ -232,25 +204,9 @@ DICTIONARY_DATABASE=wn
 THESAURUS_DATABASE=moby-thesaurus
 ```
 
-### Keybinding
-
-The default keybinding snippet is in `config/keybinds.conf`:
-
-```ini
-bind = SUPER SHIFT, D, exec, omarchy-lexicon-walker
-```
-
-Running `./install.sh` installs this snippet into `~/.config/hypr/conf.d/omarchy-lexicon.conf` when that folder exists.
-
 ## Planned Omarchy integration
 
-The current implementation is a working CLI prototype for the repository's recommended first milestone and a launcher-friendly second milestone. The intended overlay flow is:
-
-```bash
-omarchy-lexicon --length 5 --sort alpha | walker --dmenu
-```
-
-This enables a fast, keyboard-first lookup loop similar to a launcher-driven word finder.
+The CLI is a working foundation, but the real product requirement is a native Omarchy plugin with rich UX and integrated search/display behavior. The future plugin should support the same word-filtering engine while allowing interactive editing and result presentation inside the desktop environment rather than via a disposable `walker` wrapper.
 
 ## User acceptance testing
 

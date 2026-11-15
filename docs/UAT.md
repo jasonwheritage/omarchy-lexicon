@@ -9,17 +9,16 @@ UAT confirms that an end user can:
 - find words with length, rack, and pattern filters
 - use pattern modes (auto, wildcard, substring, regex)
 - sort results (alpha, length, score)
-- use launcher flow (`walker --dmenu`)
+- use the CLI search flow directly
 - copy selected words to clipboard
 - request definitions and see graceful fallback when unavailable
-- use config defaults and keybinding integration
+- use config defaults and install-time package behavior
 
 ## 2) Prerequisites
 
 - Linux desktop with Python 3
 - Repository checked out locally
 - Optional but recommended:
-  - `walker`
   - `wl-copy` / `wl-paste` (from `wl-clipboard`)
   - `dictd` and any locally configured dictionary and thesaurus databases for UAT-M04. See the [installation guidance](../README.md#wordlists-and-optional-dictionaries); the suggested Omarchy 4 packages are `wordnet-dictd`, `dict-gcide`, and `dict-moby-thesaurus`.
 
@@ -156,17 +155,16 @@ EOF
   ```
 - Expected: `apple` appears followed by a clear dictionary-unavailable message; the search completes.
 
-#### UAT-M02: Walker launcher flow
+#### UAT-M02: CLI lookup and clipboard flow
 - Command:
   ```bash
-  LEXICON_WORDLIST=/tmp/uat-words.txt ./bin/omarchy-lexicon-walker
+  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern quiz --copy
+  wl-paste
   ```
 - Expected:
-  - walker prompt appears
-  - selecting a word prints it
-  - selected word is copied to clipboard (if `wl-copy` available)
-  - if `dict` is installed, the configured dictionary definition or a lookup error appears in the terminal
-  - repeat with `LEXICON_SYNONYMS=1` to display the configured thesaurus output as well
+  - the command prints `quiz`
+  - the selected word is copied to clipboard (if `wl-copy` is available)
+  - if `dict` is installed, a lookup can be run separately with `--definition` or `--synonyms`
 
 #### UAT-M03: Install script
 - Run in an isolated temporary prefix without changing desktop keybindings:
@@ -203,7 +201,7 @@ Release candidate is acceptable when:
 
 ## 7) UAT results
 
-Latest results: 15 November 2026. Automated tests used a temporary wordlist and isolated install prefix; the local `dictd` served WordNet, GCIDE and Moby. H04 and M02 were confirmed by the user in the desktop session. **All 13 tests passed.**
+Latest results: 15 November 2026. Automated tests used a temporary wordlist and isolated install prefix; the local `dictd` served WordNet, GCIDE and Moby. **All 13 tests passed.**
 
 | Test ID | Result | Notes |
 |---|---|---|
@@ -217,8 +215,8 @@ Latest results: 15 November 2026. Automated tests used a temporary wordlist and 
 | UAT-H03 | Pass | Configured defaults returned `orange`. |
 | UAT-H04 | Pass | Clipboard copy confirmed by the user. |
 | UAT-M01 | Pass | Missing `dict` produced the unavailable message without blocking the search. |
-| UAT-M02 | Pass | Walker launcher flow confirmed by the user. |
-| UAT-M03 | Pass | Isolated installation and staged package CLI and Walker checks passed after the runtime-module fix. |
+| UAT-M02 | Pass | CLI clipboard flow confirmed by the user. |
+| UAT-M03 | Pass | Isolated installation and staged package CLI checks passed after the runtime-module fix. |
 | UAT-M04 | Pass | GCIDE and Moby returned results; the WordNet override worked. |
 
 **Resolved issues**

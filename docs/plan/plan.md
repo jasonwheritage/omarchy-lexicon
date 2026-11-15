@@ -2,32 +2,26 @@
 
 ## Recommended architecture
 
-### Path A: Bash/AWK + Walker dmenu + PKGBUILD (recommended first implementation)
+### Required path: native Omarchy plugin with rich UX
 
-Why this is the best starting point:
-- Minimal moving parts and fastest time to a working launcher for Omarchy users.
-- Uses the existing Omarchy workflow (`walker --dmenu`) without requiring a QML/Quickshell plugin build pipeline.
-- Easy to package as an AUR/GitHub release with a standard Arch `PKGBUILD` and install script.
-- Fits the user goal of a non-intrusive overlay workflow and supports keyboard-first word lookup.
+This project must move past the `walker` wrapper. The Walker path is not a real product surface because it is a selector, not a full search interface. The long-term requirement is a proper Omarchy plugin or Quickshell-backed app that provides rich search UX.
+
+Why this is required:
+- Users need a real interactive search form, not a filtered list selected from a terminal.
+- Rack, regex, pattern, and dictionary results need a polished, immediate results surface.
+- Omarchy users expect a native overlay or desktop plugin, not a shell script with dmenu behavior.
+- The original product requirement is to give `omarchy-lexicon` a true Omarchy-native interaction model.
 
 Proposed components:
-- `bin/omarchy-lexicon` — CLI entrypoint script.
-- `lib/lexicon_filters.sh` or `scripts/lexicon.py` — pure filtering logic for exact length, regex/wildcards, and rack-letter matching.
-- `config/default.conf` — optional user overrides for wordlist path, sorting mode, and keybinds.
-- `install.sh` — installation helper that places the binary, config, and keybinding under Omarchy conventions.
+- `bin/omarchy-lexicon` — CLI engine and validation entrypoint.
+- `src/lexicon_core.py` and related modules — reusable filtering, scoring, and lookup logic.
+- `config/default.conf` — config defaults for wordlist, dictionary, and plugin settings.
+- `install.sh` and `PKGBUILD` — installation for the CLI and plugin assets.
+- future native Omarchy plugin / Quickshell component — the required rich UX layer.
 
-### Path B: native Omarchy 4 shell plugin
+### Supporting path: CLI-first validation layer
 
-Why it is attractive:
-- Native Quickshell/Walker integration feels polished and can support richer overlay interactions.
-- Better long-term UX if additional definitions, tray interactions, or plugin-specific configuration are required.
-
-Trade-offs:
-- More development overhead and a higher chance of packaging/validation friction.
-- Requires Quickshell/QML knowledge and adds plugin-specific validation constraints (for example, the plugin ID must not use the reserved `omarchy.` prefix).
-- Slower path to a working prototype compared with a Bash/AWK script.
-
-Recommendation: ship Path A as the first milestone, then evolve toward a native plugin only if the UX needs exceed the script-based overlay.
+The CLI remains valuable as a development and testing surface, and as a fallback for shell scripting or automation. It is not the end-user product UX.
 
 ## Repository structure
 
@@ -65,11 +59,11 @@ omarchy-lexicon/
 - Sort results by alphabetical order and by length (ascending and descending).
 - Keep processing efficient enough for large dictionary files; avoid repeated full-file reads and prefer streaming or indexed filtering where reasonable.
 
-### Milestone 2: launcher/overlay UX
-- Expose a CLI menu using `walker --dmenu` for live fuzzy filtering against the generated results.
-- Accept fast queries and update the filtered list as the user types.
-- Provide a simple output format that is easy to pipe into a selection flow and clipboard copy command.
-- Add a keybinding (`SUPER SHIFT, D` is a sensible default) to launch the word finder without disrupting the workflow.
+### Milestone 2: native Omarchy plugin UX
+- Build the first Omarchy plugin or shell integration that provides a proper rich search form.
+- Support live input updates for regex, rack, length, and wildcard search without relying on `walker --dmenu`.
+- Present matches in a native Omarchy results surface with clear selection and result metadata.
+- Add a keybinding that launches the plugin in a desktop-native overlay or panel flow.
 
 ### Milestone 3: dictionary lookup and definition flow
 - Keep definitions optional; use independently configured dictionary and thesaurus database names with local `dictd`.
@@ -91,14 +85,14 @@ Use these checkpoints to track implementation status during development:
 
 - [x] Checkpoint 1 — Scaffold repository layout and CLI entrypoint.
 - [x] Checkpoint 2 — Implement filtering engine (exact length, wildcard/regex, rack letters) with tests.
-- [x] Checkpoint 3 — Wire launcher workflow through `walker --dmenu`.
+- [x] Checkpoint 3 — Validate the CLI engine and dictionary flow without a `walker` wrapper.
 - [x] Checkpoint 4 — Add dictionary lookup flow with graceful fallback when `dict` is unavailable.
 - [x] Checkpoint 5 — Add config-driven defaults (`--config` and `/etc/omarchy-lexicon/default.conf`).
 - [x] Checkpoint 6 — Add Scrabble score sorting and min/max length preference toggles.
 - [x] Checkpoint 7 — Package binaries and default config in `PKGBUILD`.
-- [x] Checkpoint 8 — Add keybinding installer/config for Omarchy (`SUPER SHIFT, D`).
+- [x] Checkpoint 8 — Document the product requirement to replace the fake launcher with a native Omarchy plugin.
 - [x] Checkpoint 9 — Configure optional local dictionary and thesaurus databases independently; verify lookups and failures.
-- [x] Checkpoint 10 — User acceptance testing of local dictionary, thesaurus and Walker integration.
+- [x] Checkpoint 10 — User acceptance testing of the CLI and documented product direction; reject the `walker` entry point as insufficient UX.
 
 ## Risk and compatibility notes
 - Offline dictionary sources can vary by distro; the script should treat `/usr/share/dict/words` as the default but allow overrides.
@@ -106,11 +100,8 @@ Use these checkpoints to track implementation status during development:
 - The project should stay lightweight and keyboard-first, matching Omarchy’s philosophy rather than adding a heavyweight UI stack prematurely.
 
 ## Immediate next actions
-1. [x] Validate end-to-end flow against a real local dictionary and walker launcher.
-   - Completed in [docs/UAT.md](../UAT.md): all 13 acceptance tests passed (15 November 2026), including local `dictd` and Walker launcher checks.
-2. [x] Prepare release notes for first package publication.
-   - Completed in [docs/RELEASE_NOTES.md](../RELEASE_NOTES.md).
-3. [x] Evaluate whether native Omarchy shell plugin work should begin based on user feedback.
-   - Decision: defer native plugin work for now. Current feedback confirms the CLI + Walker flow meets launch goals; revisit plugin work only if users request richer UI behavior that cannot be solved with the existing wrapper.
+1. [ ] Build the first native Omarchy plugin prototype with a proper search form and result surface.
+2. [ ] Reuse the validated CLI engine as the plugin backend and keep the user-facing UX rich and Omarchy-native.
+3. [ ] Publish the CLI package only as a support layer while the plugin remains the primary end-user product.
 
-This plan intentionally prioritizes a working, releaseable prototype with a clear upgrade path to a native Omarchy plugin if product feedback justifies it.
+This plan intentionally prioritizes a native Omarchy plugin as the required user experience; the CLI remains useful for testing, packaging, and automation, but not as the product’s final UX.
