@@ -81,8 +81,24 @@ def _apply_query_fields(args: argparse.Namespace) -> None:
         args.rack = str(interpreted["rack"])
 
 
+def _letters(text: str) -> str:
+    return re.sub(r"[^a-z]", "", (text or "").lower())
+
+
+def _prefer_rack_pool(args: argparse.Namespace) -> None:
+    """A rack is a multiset of tiles, not a spelling. Repeated letters are repeated tiles."""
+    if not args.rack:
+        return
+    rack = _letters(args.rack)
+    args.rack = rack
+    query = args.query or ""
+    if query and _letters(query) == rack and re.fullmatch(r"[A-Za-z]+", query):
+        args.query = ""
+
+
 def _build_command(args: argparse.Namespace) -> list[str]:
     _apply_query_fields(args)
+    _prefer_rack_pool(args)
     backend = _resolve_backend()
     command = [backend, "--json", "--sort", args.sort, "--limit", str(args.limit)]
 
@@ -132,6 +148,28 @@ def parse_thesaurus_text(text: str, headword: str, limit: int = 200) -> list[str
     return words
 
 
+def lookup_definition(word: str) -> dict[str, object]:
+    cleaned = re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
+    if not cleaned:
+        return {"ok": True, "word": "", "text": ""}
+    if shutil.which("dict") is None:
+        return {"ok": False, "error": "Dictionary unavailable", "text": ""}
+    try:
+        result = subprocess.run(
+            ["dict", "-h", "localhost", "-d", "wn", "--", cleaned],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"ok": False, "error": "Dictionary unavailable", "text": ""}
+    text = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+    if "cannot connect" in text.lower() or (result.returncode != 0 and not (result.stdout or "").strip()):
+        return {"ok": False, "error": (text or "Dictionary unavailable")[:500], "text": ""}
+    return {"ok": True, "word": cleaned, "text": text[:4000]}
+
+
 def lookup_thesaurus(word: str) -> dict[str, object]:
     cleaned = re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
     if not cleaned:
@@ -168,7 +206,13 @@ def main() -> int:
     parser.add_argument("--sort", choices=("alpha", "alpha_desc", "length_asc", "length_desc", "score_desc", "score_asc"), default="alpha")
     parser.add_argument("--limit", type=int, default=25, help="Maximum number of results to return")
     parser.add_argument("--thesaurus", default="", help="List similar words for this headword")
+    parser.add_argument("--definition", default="", help="Look up a dictionary definition")
     args = parser.parse_args()
+
+    if args.definition:
+        payload = lookup_definition(args.definition)
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0 if payload.get("ok") else 1
 
     if args.thesaurus:
         payload = lookup_thesaurus(args.thesaurus)

@@ -82,6 +82,60 @@ print(JSON.stringify({
         self.assertEqual(payload["back"], "pear")
         self.assertEqual(payload["stay"], "apple")
 
+    def test_rack_search_uses_letters_without_a_spelling_pattern(self):
+        payload = run_session(r"""
+var engaged = applyRack(5, true)
+var args = searchArgs("ppale", engaged.length, engaged.rack, false)
+var kept = searchArgs("a??le", 4, false, true)
+print(JSON.stringify({
+  length: engaged.length,
+  rack: engaged.rack,
+  query: args.query,
+  letters: args.rack,
+  patternQuery: kept.query,
+  patternRack: kept.rack,
+  patternSort: kept.sort
+}))
+""")
+        self.assertEqual(payload["length"], 0)
+        self.assertTrue(payload["rack"])
+        self.assertEqual(payload["query"], "")
+        self.assertEqual(payload["letters"], "ppale")
+        self.assertEqual(payload["patternQuery"], "a??le")
+        self.assertEqual(payload["patternRack"], "")
+        self.assertEqual(payload["patternSort"], "alpha_desc")
+
+    def test_appearance_stays_out_of_saved_searches(self):
+        payload = run_session(r"""
+var session = cloneSession({pattern:"apple", length:5, rack:true, descending:false, selectedWord:"apple", font:"Noto Sans", scale:1.4})
+var state = normalizeState({history:[session], current:session, cursor:0, appearance:{font:"Noto Sans", scale:1.4}})
+var appearance = normalizeAppearance({font:"Comic Sans", scale:9})
+var grown = stepScale(1, 1)
+var shrunk = stepScale(0.8, -1)
+var font = cycleFont("theme", 1)
+var back = cycleFont(font, -1)
+print(JSON.stringify({
+  sessionFont: session.font || "",
+  sessionScale: session.scale || 0,
+  statePattern: state.current.pattern,
+  appearanceFont: appearance.font,
+  appearanceScale: appearance.scale,
+  grown: grown,
+  shrunk: shrunk,
+  font: font,
+  back: back
+}))
+""")
+        self.assertEqual(payload["sessionFont"], "")
+        self.assertEqual(payload["sessionScale"], 0)
+        self.assertEqual(payload["statePattern"], "apple")
+        self.assertEqual(payload["appearanceFont"], "Comic Sans")
+        self.assertEqual(payload["appearanceScale"], 2)
+        self.assertEqual(payload["grown"], 1.25)
+        self.assertEqual(payload["shrunk"], 0.75)
+        self.assertEqual(payload["font"], "Liberation Sans")
+        self.assertEqual(payload["back"], "theme")
+
     def test_rack_letters_keep_exact_counts_and_drop_wildcards(self):
         payload = run_session(r"""
 print(JSON.stringify(rackLetters("Ap?e*")))

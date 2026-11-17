@@ -40,6 +40,23 @@ class SearchGatewayTests(unittest.TestCase):
         self.assertEqual(command[command.index("--min-length") + 1], "4")
         self.assertEqual(command[command.index("--max-length") + 1], "8")
 
+    def test_rack_letters_are_a_pool_not_a_spelling(self):
+        search = load_search()
+        search._resolve_backend = lambda: "omarchy-lexicon"
+        args = Namespace(
+            query="ppale",
+            length=None,
+            min_length=None,
+            max_length=None,
+            rack="ppale",
+            pattern_mode="auto",
+            sort="alpha",
+            limit=80,
+        )
+        command = search._build_command(args)
+        self.assertNotIn("--pattern", command)
+        self.assertEqual(command[command.index("--rack") + 1], "ppale")
+
     def test_explicit_flags_win_over_query_fields(self):
         search = load_search()
         search._resolve_backend = lambda: "omarchy-lexicon"

@@ -93,6 +93,7 @@ Use these checkpoints to track implementation status during development:
 - [x] Checkpoint 8 — Document the product requirement to replace the fake launcher with a native Omarchy plugin.
 - [x] Checkpoint 9 — Configure optional local dictionary and thesaurus databases independently; verify lookups and failures.
 - [x] Checkpoint 10 — User acceptance testing of the CLI and documented product direction; reject the `walker` entry point as insufficient UX.
+- [x] Checkpoint 11 — Overlay arrows reach length, rack, sort, and font; a rack uses letter counts only and clears length; font and Ctrl +/- size stay independent of saved searches. The card stays centered and clamped to the screen, so the same overlay fits different display sizes without a separate window manager.
 
 ## Risk and compatibility notes
 - Offline dictionary sources can vary by distro; the script should treat `/usr/share/dict/words` as the default but allow overrides.

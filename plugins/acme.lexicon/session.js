@@ -1,5 +1,3 @@
-.pragma library
-
 function defaultSession() {
   return {
     pattern: "",
@@ -39,6 +37,52 @@ function sessionsEqual(left, right) {
 
 function rackLetters(pattern) {
   return String(pattern || "").toLowerCase().replace(/[^a-z]/g, "")
+}
+
+var FONT_CHOICES = ["theme", "Liberation Sans", "Noto Sans", "Liberation Serif", "iA Writer Quattro S"]
+
+function clampScale(value) {
+  var number = Number(value)
+  if (!isFinite(number)) return 1
+  var stepped = Math.round(number * 20) / 20
+  if (stepped < 0.75) return 0.75
+  if (stepped > 2) return 2
+  return stepped
+}
+
+function stepScale(scale, direction) {
+  var delta = direction < 0 ? -0.25 : 0.25
+  return clampScale(Math.round((clampScale(scale) + delta) * 20) / 20)
+}
+
+function cycleFont(font, direction) {
+  var index = FONT_CHOICES.indexOf(String(font || "theme"))
+  if (index < 0) index = 0
+  var step = direction < 0 ? -1 : 1
+  return FONT_CHOICES[(index + step + FONT_CHOICES.length) % FONT_CHOICES.length]
+}
+
+function normalizeAppearance(raw) {
+  var data = raw && typeof raw === "object" ? raw : {}
+  var font = String(data.font || "theme").trim().slice(0, 80)
+  if (!font) font = "theme"
+  return { font: font, scale: clampScale(data.scale) }
+}
+
+function applyRack(length, on) {
+  var enabled = on === true || on === 1
+  return { rack: enabled, length: enabled ? 0 : clampLength(length) }
+}
+
+function searchArgs(pattern, length, rackOn, descending) {
+  var text = String(pattern || "").trim().slice(0, 80)
+  var enabled = rackOn === true || rackOn === 1
+  return {
+    query: enabled ? "" : text,
+    length: clampLength(length),
+    rack: enabled ? rackLetters(text) : "",
+    sort: descending === true || descending === 1 ? "alpha_desc" : "alpha"
+  }
 }
 
 function rememberOnExit(history, session) {

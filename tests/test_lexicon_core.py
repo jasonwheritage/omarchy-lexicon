@@ -44,6 +44,13 @@ class WordFinderTests(unittest.TestCase):
         result = finder.filter_words(self.words, rack="aerst")
         self.assertEqual(set(result), {"stare", "rates", "tears", "tares"})
 
+    def test_rack_keeps_repeated_letters(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.filter_words(["apple", "pale", "ape", "apply"], rack="ppale")
+        self.assertIn("apple", result)
+        self.assertIn("pale", result)
+        self.assertNotIn("apply", result)
+
     def test_rack_count_limits_every_pattern_mode(self):
         finder = WordFinder(self.tempfile.name)
         words = ["apple", "ape", "pale", "apply", "plea"]

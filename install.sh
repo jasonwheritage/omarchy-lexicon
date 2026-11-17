@@ -110,8 +110,13 @@ if [ ! -e /usr/share/dict/words ] && [ ! -e /usr/share/dict/words.txt ] && comma
   printf 'Example: sudo pacman -S --needed words\n' >&2
 fi
 
-if [ -z "${DESTDIR:-}" ] && command -v omarchy-shell >/dev/null 2>&1; then
-  omarchy-shell shell rescanPlugins 2>/dev/null || true
+if [ -z "${DESTDIR:-}" ] && [ -d "${USER_HOME}/.cache/quickshell" ]; then
+  rm -f "${USER_HOME}/.cache/quickshell/qmlcache/adb27e0b608a0c7395dfb221242f7baa7b79a396.jsc" 2>/dev/null || true
+  if command -v omarchy >/dev/null 2>&1; then
+    omarchy restart shell >/dev/null 2>&1 || true
+  elif command -v omarchy-shell >/dev/null 2>&1; then
+    omarchy-shell shell rescanPlugins 2>/dev/null || true
+  fi
 fi
 
 printf 'Installed omarchy-lexicon to %s\n' "${PREFIX}"
