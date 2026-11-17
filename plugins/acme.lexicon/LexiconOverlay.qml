@@ -21,6 +21,7 @@ Item {
   property string filterText: ""
   property int lengthValue: 0
   property bool rackOn: false
+  property bool byLetters: false
   property bool descending: false
   property bool suppressFilter: false
   property int selectedIndex: 0
@@ -51,9 +52,7 @@ Item {
     return base + "/omarchy-lexicon"
   }
   readonly property string statePath: root.stateDir + "/overlay.json"
-  readonly property string searchScript: (root.manifest && root.manifest.__sourceDir)
-    ? root.manifest.__sourceDir + "/search.py"
-    : Qt.resolvedUrl("search.py").toString().replace("file://", "")
+  readonly property string searchScript: Qt.resolvedUrl("search.py").toString().replace("file://", "")
 
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
 
@@ -85,7 +84,7 @@ Item {
   property int cardWidth: Math.max(1, Math.min(Math.round(Style.space(1080) * root.uiScale), panel.width - Style.gapsOut * 2))
   property int cardHeight: Math.max(1, Math.min(Math.round(Style.space(680) * root.uiScale), panel.height - Style.gapsOut * 2))
   property int rowHeight: Math.max(Math.round(Style.space(36) * root.uiScale), root.textBody + Math.round(Style.spacing.rowPaddingX * root.uiScale))
-  readonly property var zones: ["pattern", "length", "rack", "sort", "words", "meaning", "thesaurus"]
+  readonly property var zones: ["pattern", "length", "rack", "letters", "sort", "words", "meaning", "thesaurus"]
 
   Timer {
     id: searchDebounce
@@ -159,6 +158,7 @@ Item {
       pattern: root.filterText,
       length: root.lengthValue,
       rack: root.rackOn,
+      byLetters: root.byLetters,
       descending: root.descending,
       selectedWord: root.selectedWord(),
       thesaurusWord: root.thesaurusActive ? root.currentThesaurusWord() : ""
@@ -287,6 +287,7 @@ Item {
     root.suppressFilter = false
     root.lengthValue = next.length
     root.rackOn = next.rack
+    root.byLetters = next.byLetters === true
     root.descending = next.descending
     root.pendingWord = next.selectedWord
     root.pendingThesaurus = next.thesaurusWord
@@ -318,6 +319,12 @@ Item {
     var applied = Session.applyRack(root.lengthValue, value)
     root.rackOn = applied.rack
     root.lengthValue = applied.length
+    root.pendingWord = root.selectedWord()
+    root.scheduleSearch()
+  }
+
+  function setByLetters(value) {
+    root.byLetters = value === true
     root.pendingWord = root.selectedWord()
     root.scheduleSearch()
   }
@@ -372,6 +379,7 @@ Item {
     filterInput.focus = false
     var target = lengthFocus
     if (zone === "rack") target = rackFocus
+    else if (zone === "letters") target = lettersFocus
     else if (zone === "sort") target = sortFocus
     else if (zone === "words") target = resultList
     else if (zone === "meaning") target = meaningFlick
@@ -390,25 +398,27 @@ Item {
     if (key === Qt.Key_Right) {
       if (zone === "pattern") return "length"
       if (zone === "length") return "rack"
-      if (zone === "rack") return "sort"
+      if (zone === "rack") return "letters"
+      if (zone === "letters") return "sort"
       if (zone === "words") return "meaning"
       if (zone === "meaning") return "thesaurus"
     }
     if (key === Qt.Key_Left) {
       if (zone === "length") return "pattern"
       if (zone === "rack") return "length"
-      if (zone === "sort") return "rack"
+      if (zone === "letters") return "rack"
+      if (zone === "sort") return "letters"
       if (zone === "meaning") return "words"
       if (zone === "thesaurus") return "meaning"
     }
     if (key === Qt.Key_Down) {
       if (zone === "pattern") return "length"
       if (zone === "length") return "words"
-      if (zone === "rack") return "meaning"
+      if (zone === "rack" || zone === "letters") return "meaning"
       if (zone === "sort") return "thesaurus"
     }
     if (key === Qt.Key_Up) {
-      if (zone === "length" || zone === "rack" || zone === "sort") return "pattern"
+      if (zone === "length" || zone === "rack" || zone === "letters" || zone === "sort") return "pattern"
       if (zone === "words") return "length"
       if (zone === "meaning") return "rack"
       if (zone === "thesaurus") return "sort"
@@ -459,8 +469,9 @@ Item {
       event.accepted = true
       return
     }
-    if (event.key === Qt.Key_Space && (root.focusZone === "rack" || root.focusZone === "sort")) {
+    if (event.key === Qt.Key_Space && (root.focusZone === "rack" || root.focusZone === "letters" || root.focusZone === "sort")) {
       if (root.focusZone === "rack") root.setRack(!root.rackOn)
+      else if (root.focusZone === "letters") root.setByLetters(!root.byLetters)
       else root.setDescending(!root.descending)
       event.accepted = true
       return
@@ -495,6 +506,13 @@ Item {
       meaningFlick.contentY = Math.max(0, Math.min(nextY, limit))
       event.accepted = true
       return
+    }
+    if (root.focusZone === "pattern" && event.key === Qt.Key_Left) {
+      return
+    }
+    if (root.focusZone === "pattern" && event.key === Qt.Key_Right) {
+      if ((event.modifiers & Qt.ShiftModifier) || filterInput.selectedText.length > 0 || filterInput.cursorPosition < filterInput.text.length)
+        return
     }
     if (event.key === Qt.Key_Left || event.key === Qt.Key_Right || event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
       var target = root.arrowTarget(root.focusZone, event.key)
@@ -576,7 +594,7 @@ Item {
 
   function runSearch() {
     if (!root.opened) return
-    var args = Session.searchArgs(root.filterText, root.lengthValue, root.rackOn, root.descending)
+    var args = Session.searchArgs(root.filterText, root.lengthValue, root.rackOn, root.descending, root.byLetters)
     if (!args.query && !args.rack && args.length <= 0) {
       root.clearSearch()
       return
@@ -912,15 +930,55 @@ Item {
               color: Style.controlFill(root.focusZone === "pattern", false, root.foreground, root.accent)
               borderSpec: Border.controlSpec(root.focusZone === "pattern" ? "focus" : "normal", root.foreground, root.accent)
 
-              FilterInput {
+              TextInput {
                 id: filterInput
                 anchors.fill: parent
                 anchors.margins: Style.space(8)
-                keyHandler: keyCatcher
+                focus: true
+                clip: true
+                selectByMouse: true
+                verticalAlignment: TextInput.AlignVCenter
                 color: root.foreground
+                selectionColor: root.selectedBackground
+                selectedTextColor: root.selectedText
                 font.family: root.fontFamily
                 font.pixelSize: root.textHeading
+                Keys.priority: Keys.BeforeItem
+                Keys.forwardTo: [keyCatcher]
+                Keys.onPressed: function(event) {
+                  if (event.modifiers & (Qt.AltModifier | Qt.MetaModifier)) event.accepted = true
+                }
+                onActiveFocusChanged: if (activeFocus && root.focusZone !== "pattern") root.focusZone = "pattern"
                 onTextChanged: if (!root.suppressFilter && text !== root.filterText) root.setPattern(text)
+
+                cursorDelegate: Rectangle {
+                  id: caret
+                  width: Math.max(2, root.dp(2))
+                  color: root.accent
+                  visible: filterInput.activeFocus && root.focusZone === "pattern"
+                  property bool blinkOn: true
+                  opacity: blinkOn ? 1 : 0
+
+                  Connections {
+                    target: filterInput
+                    function onCursorPositionChanged() {
+                      caret.blinkOn = true
+                      caretTimer.restart()
+                    }
+                    function onTextChanged() {
+                      caret.blinkOn = true
+                      caretTimer.restart()
+                    }
+                  }
+
+                  Timer {
+                    id: caretTimer
+                    interval: 530
+                    running: caret.visible
+                    repeat: true
+                    onTriggered: caret.blinkOn = !caret.blinkOn
+                  }
+                }
               }
 
               Text {
@@ -973,7 +1031,7 @@ Item {
             spacing: root.dp(Style.space(8))
 
             ClickSurface {
-              width: (parent.width - parent.spacing * 3 - root.sizeSlot) / 3
+              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
               height: parent.height
               radius: root.cornerRadius
               color: Style.controlFill(root.focusZone === "length", false, root.foreground, root.accent)
@@ -1009,7 +1067,7 @@ Item {
             }
 
             ClickSurface {
-              width: (parent.width - parent.spacing * 3 - root.sizeSlot) / 3
+              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
               height: parent.height
               radius: root.cornerRadius
               color: Style.controlFill(root.focusZone === "rack", false, root.foreground, root.accent)
@@ -1057,7 +1115,55 @@ Item {
             }
 
             ClickSurface {
-              width: (parent.width - parent.spacing * 3 - root.sizeSlot) / 3
+              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
+              height: parent.height
+              radius: root.cornerRadius
+              color: Style.controlFill(root.focusZone === "letters", false, root.foreground, root.accent)
+              borderSpec: Border.controlSpec(root.focusZone === "letters" ? "focus" : "normal", root.foreground, root.accent)
+              onActivated: {
+                root.showZone("letters")
+                root.setByLetters(!root.byLetters)
+              }
+
+              Item {
+                id: lettersFocus
+                anchors.fill: parent
+                activeFocusOnTab: true
+                Keys.onPressed: function(event) { root.handleNavKey(event) }
+              }
+
+              Row {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(10)
+                spacing: Style.space(8)
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: strings.t("option.letters")
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: root.textBody
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.byLetters ? strings.t("option.on") : strings.t("option.off")
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: root.textBody
+                  font.bold: root.byLetters
+                }
+                ToggleSwitch {
+                  checked: root.byLetters
+                  interactive: false
+                  hasCursor: root.focusZone === "letters"
+                }
+              }
+            }
+
+            ClickSurface {
+              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
               height: parent.height
               radius: root.cornerRadius
               color: Style.controlFill(root.focusZone === "sort", false, root.foreground, root.accent)

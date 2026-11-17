@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-validate:
+    name: Validate plugin manifest & run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq quickjs wamerican
+
+      - name: Validate Omarchy plugin manifests and symlink rules
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path(".")
+          for manifest_rel in ("manifest.json", "plugins/acme.lexicon/manifest.json"):
+              manifest_path = root / manifest_rel
+              base_dir = manifest_path.parent
+              data = json.loads(manifest_path.read_text(encoding="utf-8"))
+              assert data.get("schemaVersion") == 1, f"{manifest_rel}: schemaVersion must be 1"
+              for field in ("id", "name", "version", "kinds", "entryPoints"):
+                  assert field in data, f"{manifest_rel}: missing {field}"
+              plugin_id = data["id"]
+              assert not plugin_id.startswith("omarchy."), f"{manifest_rel}: reserved id {plugin_id}"
+              assert "overlay" in data["kinds"], f"{manifest_rel}: missing overlay kind"
+              overlay_ep = data["entryPoints"].get("overlay", "")
+              assert overlay_ep and not overlay_ep.startswith("/") and ".." not in overlay_ep
+              assert (base_dir / overlay_ep).is_file(), f"{manifest_rel}: missing entryPoint {overlay_ep}"
+          PY
+          link="$(find . -name .git -prune -o -type l -print -quit)"
+          if [ -n "$link" ]; then
+            echo "Disallowed symlink found: $link" >&2
+            exit 1
+          fi
+
+      - name: Run unit and installation test suite
+        run: python3 -m unittest discover -s tests -v

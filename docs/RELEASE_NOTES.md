@@ -1,30 +1,22 @@
 # Release notes
 
-## v0.1.0 (first package publication)
+## v1.0.0
 
-`omarchy-lexicon` v0.1.0 ships a keyboard-first, offline word finder designed around the CLI engine and the requirement for a future native Omarchy plugin UX.
+`omarchy-lexicon` v1.0.0 is the first public release of the native Omarchy word-finder and dictionary overlay plugin (`acme.lexicon`), ready for the Omarchy community marketplace (`omarchy plugin add`).
 
 ### Highlights
 
-- Core word filtering by exact length, range, wildcard/substring/regex pattern, and rack letters.
-- Result sorting by alphabetical order, word length, and Scrabble score.
-- Optional local dictionary and thesaurus lookups through `dictd`.
-- Clipboard copy support via `wl-copy`.
-- Config defaults via `--config` and `/etc/omarchy-lexicon/default.conf`.
-- Install helper script (`install.sh`) and Arch package scaffold (`PKGBUILD`).
+- Native `OverlayWindow` plugin (`acme.lexicon`) running inside `omarchy-shell` with full keyboard and mouse navigation.
+- Live word filtering by wildcard (`*`, `?`, `.`), substring, and regular-expression patterns, exact word length (`1–32`), and multiset rack tile pools.
+- Alphabetical (`A–Z` / `Z–A`) and letter-quantity (`Letters` shortest-first / longest-first) sorting.
+- Three-column results view showing matching words, WordNet definitions, and Moby Thesaurus synonyms via local `dictd`.
+- Persistent 3-search history ring (`Ctrl+Up` / `Ctrl+Down`, `Ctrl+Backspace` to reset).
+- Independent appearance persistence with five font choices (`Theme`, `Sans`, `Serif`, `Mono`, `Writer`) and UI scaling (`75%–200%` via `−` / `+` buttons and `Ctrl +` / `Ctrl -`, `Ctrl+0` to reset).
+- In-place pattern editing with an accent-colored blinking cursor and `Left` / `Right` caret navigation.
+- Self-contained plugin packaging compatible with `omarchy plugin add`, `./install.sh`, and Arch `PKGBUILD`.
 
-### Validation summary
+### Installation
 
-- Unit/integration test coverage includes filtering logic, CLI behavior, and install path checks.
-- Manual UAT is documented in [UAT.md](./UAT.md), covering the supported CLI workflow and dictionary fallback behavior.
-
-### Packaging notes
-
-- Installed binary name: `/usr/bin/omarchy-lexicon`.
-- Runtime Python modules install to: `/usr/lib/omarchy-lexicon/`.
-- Default config path: `/etc/omarchy-lexicon/default.conf`.
-
-### Known limitations
-
-- Dictionary and thesaurus lookups require local `dictd` and installed databases.
-- The current product is CLI-first; a native Omarchy plugin with richer UX remains the required next milestone.
+- Omarchy plugin CLI: `omarchy plugin add https://github.com/jasonwheritage/omarchy-lexicon.git --enable`
+- Local checkout installer: `./install.sh` (installs to `~/.config/omarchy/plugins/acme.lexicon/`)
+- Arch package (`PKGBUILD`): `makepkg -si` (stages to `/usr/share/omarchy-lexicon/plugins/acme.lexicon/` and `/etc/omarchy-lexicon/default.conf`)

@@ -87,6 +87,8 @@ print(JSON.stringify({
 var engaged = applyRack(5, true)
 var args = searchArgs("ppale", engaged.length, engaged.rack, false)
 var kept = searchArgs("a??le", 4, false, true)
+var byLenAsc = searchArgs("ppale", 0, true, false, true)
+var byLenDesc = searchArgs("ppale", 0, true, true, true)
 print(JSON.stringify({
   length: engaged.length,
   rack: engaged.rack,
@@ -94,7 +96,9 @@ print(JSON.stringify({
   letters: args.rack,
   patternQuery: kept.query,
   patternRack: kept.rack,
-  patternSort: kept.sort
+  patternSort: kept.sort,
+  byLenAsc: byLenAsc.sort,
+  byLenDesc: byLenDesc.sort
 }))
 """)
         self.assertEqual(payload["length"], 0)
@@ -104,6 +108,8 @@ print(JSON.stringify({
         self.assertEqual(payload["patternQuery"], "a??le")
         self.assertEqual(payload["patternRack"], "")
         self.assertEqual(payload["patternSort"], "alpha_desc")
+        self.assertEqual(payload["byLenAsc"], "length_asc")
+        self.assertEqual(payload["byLenDesc"], "length_desc")
 
     def test_appearance_stays_out_of_saved_searches(self):
         payload = run_session(r"""

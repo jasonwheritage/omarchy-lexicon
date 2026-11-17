@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "acme.lexicon",
+  "name": "Lexicon",
+  "version": "1.0.0",
+  "kinds": ["overlay"],
+  "entryPoints": {
+    "overlay": "plugins/acme.lexicon/LexiconOverlay.qml"
+  },
+  "description": "Keyboard-first Omarchy overlay for offline word lookup.",
+  "author": "Jason Heritage",
+  "license": "MIT"
+}

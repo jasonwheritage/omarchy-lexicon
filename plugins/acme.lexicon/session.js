@@ -3,6 +3,7 @@ function defaultSession() {
     pattern: "",
     length: 0,
     rack: false,
+    byLetters: false,
     descending: false,
     selectedWord: "",
     thesaurusWord: ""
@@ -22,6 +23,7 @@ function cloneSession(session) {
     pattern: String(source.pattern || "").trim().slice(0, 80),
     length: clampLength(source.length),
     rack: source.rack === true,
+    byLetters: source.byLetters === true,
     descending: source.descending === true,
     selectedWord: String(source.selectedWord || "").slice(0, 80),
     thesaurusWord: String(source.thesaurusWord || "").slice(0, 80)
@@ -32,6 +34,7 @@ function sessionsEqual(left, right) {
   return left.pattern === right.pattern
     && left.length === right.length
     && left.rack === right.rack
+    && Boolean(left.byLetters) === Boolean(right.byLetters)
     && left.descending === right.descending
 }
 
@@ -74,14 +77,17 @@ function applyRack(length, on) {
   return { rack: enabled, length: enabled ? 0 : clampLength(length) }
 }
 
-function searchArgs(pattern, length, rackOn, descending) {
+function searchArgs(pattern, length, rackOn, descending, byLetters) {
   var text = String(pattern || "").trim().slice(0, 80)
   var enabled = rackOn === true || rackOn === 1
+  var desc = descending === true || descending === 1
+  var letters = byLetters === true || byLetters === 1
+  var sort = letters ? (desc ? "length_desc" : "length_asc") : (desc ? "alpha_desc" : "alpha")
   return {
     query: enabled ? "" : text,
     length: clampLength(length),
     rack: enabled ? rackLetters(text) : "",
-    sort: descending === true || descending === 1 ? "alpha_desc" : "alpha"
+    sort: sort
   }
 }
 

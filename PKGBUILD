@@ -1,15 +1,12 @@
-# Maintainer: Your Name <you@example.com>
+# Maintainer: Jason Heritage
 #
-# Milestone packaging note:
-# This PKGBUILD installs the current CLI-first prototype as a system command,
-# while keeping the source layout compatible with a future upstream release.
-# The binary entry point remains /usr/bin/omarchy-lexicon even before a native
-# Omarchy plugin or QML overlay is introduced.
+# Packages the native Omarchy overlay plugin (acme.lexicon) and its embedded
+# Python search engine modules.
 
 pkgname=omarchy-lexicon
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
-pkgdesc="Offline word finder and dictionary utility for word games"
+pkgdesc="Native Omarchy word-finder and dictionary overlay plugin"
 arch=('any')
 license=('MIT')
 depends=('python' 'wl-clipboard' 'words')
@@ -17,19 +14,19 @@ source=("git+https://github.com/jasonwheritage/omarchy-lexicon.git")
 sha256sums=('SKIP')
 
 package() {
-    # The repo is checked out under $srcdir/omarchy-lexicon during makepkg.
-    install -Dm755 "$srcdir/omarchy-lexicon/bin/omarchy-lexicon" "$pkgdir/usr/bin/omarchy-lexicon"
-    for module in "$srcdir"/omarchy-lexicon/src/*.py; do
-        install -Dm644 "$module" "$pkgdir/usr/lib/omarchy-lexicon/$(basename "$module")"
-    done
+    local plugin_dir="$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon"
+
     install -Dm644 "$srcdir/omarchy-lexicon/config/default.conf" "$pkgdir/etc/omarchy-lexicon/default.conf"
     install -Dm644 "$srcdir/omarchy-lexicon/README.md" "$pkgdir/usr/share/doc/omarchy-lexicon/README.md"
 
-    install -d "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon"
-    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/manifest.json" \
-        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/manifest.json"
-    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/LexiconOverlay.qml" \
-        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/LexiconOverlay.qml"
-    install -Dm755 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/search.py" \
-        "$pkgdir/usr/share/omarchy-lexicon/plugins/acme.lexicon/search.py"
+    install -d "$plugin_dir/i18n"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/manifest.json" "$plugin_dir/manifest.json"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/LexiconOverlay.qml" "$plugin_dir/LexiconOverlay.qml"
+    install -Dm755 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/search.py" "$plugin_dir/search.py"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/session.js" "$plugin_dir/session.js"
+    install -Dm644 "$srcdir/omarchy-lexicon/plugins/acme.lexicon/i18n/en.json" "$plugin_dir/i18n/en.json"
+
+    for module in "$srcdir"/omarchy-lexicon/src/*.py; do
+        install -Dm644 "$module" "$plugin_dir/$(basename "$module")"
+    done
 }

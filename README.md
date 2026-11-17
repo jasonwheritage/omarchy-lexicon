@@ -1,42 +1,36 @@
 # omarchy-lexicon
 
-`omarchy-lexicon` is a keyboard-first offline word finder for word games. It filters a local dictionary by exact length, wildcard patterns, and rack-letter availability, then prints sorted results for CLI-driven lookup and future Omarchy-native UX.
+`omarchy-lexicon` is a keyboard-first, offline word finder and dictionary overlay plugin for Omarchy (`acme.lexicon`). It runs inside the existing `omarchy-shell` process and filters a local wordlist by pattern, exact length, and rack-letter pool while displaying WordNet definitions and Moby Thesaurus synonyms side by side.
 
 ## Features
 
-- Exact-length filtering (`--length 5`)
-- Length range filtering (`--min-length 4 --max-length 7`)
-- Pattern matching with wildcard, substring, or regex modes (`--pattern`, `--pattern-mode`)
-- Anagram/rack filtering with letter frequency checks (`--rack aeinrst`)
-- Result sorting (`--sort alpha`, `--sort length_asc`, `--sort length_desc`, `--sort score_desc`, `--sort score_asc`)
-- Optional offline definitions and similar words via a local `dictd` server
-- `wl-copy` clipboard support via `--copy`
-- Config-file defaults via `--config` or `/etc/omarchy-lexicon/default.conf`
+- Native Omarchy `OverlayWindow` plugin (`acme.lexicon`) with live search as you type
+- Wildcard (`*`, `?`, `.`), substring, and regular-expression pattern matching
+- Exact word-length filter (`0` for any length, `1–32` for exact length)
+- Rack tile-pool mode: matches words that can be formed from the supplied letters, honoring repeated letters up to their tile count and automatically clearing the length filter when enabled
+- Alphabetical (`A–Z` / `Z–A`) and letter-quantity (`Letters` shortest-first / longest-first) sorting
+- Three-column results view: matching words, definition (`dictd` WordNet), and thesaurus (`dictd` Moby Thesaurus)
+- Persistent session ring (last three searches with `Ctrl+Up` / `Ctrl+Down` and `Ctrl+Backspace` to reset)
+- Independent appearance settings: five in-app font options (`Theme`, `Sans`, `Serif`, `Mono`, `Writer`) and UI scaling (`75%–200%` via `−` / `+` buttons or `Ctrl +` / `Ctrl -`, `Ctrl+0` to reset)
+- `wl-copy` clipboard integration (`Enter` copies the focused word and closes; `Ctrl+C` copies while staying open)
 
-## Quick start
+## Installation
 
-The default dictionary path is `/usr/share/dict/words`. Install the Arch `words` package if the file is missing:
+### Prerequisites
+
+The default wordlist is `/usr/share/dict/words`. Install the Arch `words` package if it is missing:
 
 ```bash
 sudo pacman -S --needed words
 ```
 
-Then run:
+### Install with Omarchy's plugin manager (Recommended)
 
 ```bash
-./bin/omarchy-lexicon --wordlist /usr/share/dict/words --length 5 --sort alpha
-./bin/omarchy-lexicon --pattern "s.a.e" --sort alpha
-./bin/omarchy-lexicon --pattern "ing" --pattern-mode substring
-./bin/omarchy-lexicon --pattern "^t.*s$" --pattern-mode regex
-./bin/omarchy-lexicon --rack aeinrst --sort length_asc --limit 20
-./bin/omarchy-lexicon --min-length 4 --max-length 8 --sort score_desc --limit 25
-./bin/omarchy-lexicon --pattern "s.a.e" --copy --definition
-./bin/omarchy-lexicon --config ./config/default.conf
+omarchy plugin add https://github.com/jasonwheritage/omarchy-lexicon.git --enable
 ```
 
-## Installation
-
-### Option 1: install from this checkout
+### Install from a local checkout
 
 ```bash
 git clone https://github.com/jasonwheritage/omarchy-lexicon.git
@@ -44,176 +38,63 @@ cd omarchy-lexicon
 ./install.sh
 ```
 
-By default, this installs:
+`./install.sh` installs the self-contained plugin and its Python search engine modules into `~/.config/omarchy/plugins/acme.lexicon`, writes default configuration to `~/.local/etc/omarchy-lexicon/default.conf` (when absent), registers `acme.lexicon` in `~/.config/omarchy/shell.json`, and restarts `omarchy-shell` so the overlay is immediately available.
 
-- `omarchy-lexicon` to `/usr/local/bin`
-- runtime modules to `/usr/local/lib/omarchy-lexicon`
-- default config to `/usr/local/etc/omarchy-lexicon/default.conf`
-- a lightweight Omarchy plugin prototype to `$HOME/.config/omarchy/plugins/acme.lexicon`
-
-To install to a different prefix:
-
-```bash
-PREFIX="$HOME/.local" ./install.sh
-```
-
-### Option 2: build/install with PKGBUILD (Arch)
+### Build and install with `PKGBUILD` (Arch)
 
 ```bash
 makepkg -si
 ```
 
-This installs the package-managed files to system paths such as `/usr/bin/omarchy-lexicon` and copies the plugin prototype into `/usr/share/omarchy-lexicon/plugins/acme.lexicon` for local installation or review.
+This packages the plugin tree under `/usr/share/omarchy-lexicon/plugins/acme.lexicon` and installs `/etc/omarchy-lexicon/default.conf` and `/usr/share/doc/omarchy-lexicon/README.md`.
 
-### Native Omarchy plugin prototype
-
-The project now ships a minimal native plugin prototype that matches the required Omarchy UX direction without adding a second Quickshell process:
-
-```text
-~/.config/omarchy/plugins/acme.lexicon/
-├── manifest.json
-├── LexiconOverlay.qml
-└── search.py
-```
-
-The frontend is intentionally small: a single overlay with a search field and results list. It calls the Python backend through `search.py`, which shells out to `omarchy-lexicon --json` for the actual word filtering logic. This keeps the UI layer thin and the filtering engine reusable.
-
-To install or refresh the plugin in an active Omarchy user config:
+### Uninstall
 
 ```bash
-PLUGIN_TARGET_DIR="$HOME/.config/omarchy/plugins/acme.lexicon" ./install.sh
+./uninstall.sh
 ```
 
-## Advanced search usage
+## Launching the overlay
 
-Use the CLI for the full feature set:
+Toggle the overlay from the shell command or bind it in `~/.config/hypr/bindings.lua`:
 
 ```bash
-omarchy-lexicon --rack aeinrst --sort score_desc
-omarchy-lexicon --pattern '^t.*s$' --pattern-mode regex
-omarchy-lexicon --min-length 6 --max-length 8
+omarchy-shell shell toggle acme.lexicon
 ```
 
-This project intentionally does not ship a `walker`-based pseudo-UI, because `walker` is a selector and cannot provide the rich search UX needed for full pattern, rack, and dictionary work. The long-term path is a native Omarchy plugin or shell integration with a proper search form and richer presentation.
+Example Hyprland binding in `~/.config/hypr/bindings.lua`:
 
-## Architecture
+```lua
+o.bind("SUPER + SHIFT + D", "Lexicon", { panel = "acme.lexicon" })
+```
 
-The native Omarchy plugin design and lightweight system model are documented in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+## Overlay controls
 
-## Wordlists and optional dictionaries
+| Control | Keyboard | Mouse |
+|---|---|---|
+| Search pattern | Type directly in the search box (`*` any, `?` or `.` single letter) | Click the search box; text selection is supported |
+| Length filter | Arrow to `Length`, then type digits (`0–9`), `Backspace`, or `+` / `-` | Click `Length` to focus |
+| Rack mode | Arrow to `Rack` and press `Space` | Click the `Rack` chip |
+| Sort by letter count | Arrow to `Letters` and press `Space` | Click the `Letters` chip |
+| Sort order | Arrow to `Ascending` / `Descending` and press `Space` (or `Ctrl+Left` / `Ctrl+Right`) | Click the `Ascending` / `Descending` chip |
+| Scale (`75%–200%`) | `Ctrl +` / `Ctrl =` to enlarge, `Ctrl -` to shrink, `Ctrl+0` to reset | Click `−` or `+` |
+| Font family | Persisted independently of search history | Click `Theme`, `Sans`, `Serif`, `Mono`, or `Writer` |
+| Words / Meaning / Thesaurus | Arrow keys or `Tab` / `Shift+Tab` between zones | Click any word or synonym to inspect its definition |
+| Copy & dismiss | `Enter` copies focused word and closes; `Ctrl+C` copies; `Escape` closes | Click outside the card to close |
 
-Word searches use `/usr/share/dict/words` by default, independently of `dictd`. If it is missing, supply a local wordlist with `--wordlist` or `WORDLIST_PATH` in the config file.
+## Optional offline dictionaries (`dictd`)
 
-For optional offline definitions and similar words on Omarchy 4, one recommended setup is:
+Word filtering works from `/usr/share/dict/words` alone. For definitions and synonyms in the overlay, install and enable `dictd` with local databases:
 
 ```bash
 sudo pacman -S --needed dictd
 yay -S wordnet-dictd dict-gcide dict-moby-thesaurus
-```
-
-The three dictionary packages are AUR packages; review their build instructions before installing. They are recommendations, not requirements: other databases served by local `dictd` work too. Start or restart `dictd` after installing databases and verify them:
-
-```bash
 sudo systemctl enable --now dictd
 sudo systemctl restart dictd
 dict -h localhost -D
 ```
 
-A `dictd.conf` parse error can mean no database is configured; see the [ArchWiki dictd guide](https://wiki.archlinux.org/title/Dictd). WordNet (`wn`) and Moby (`moby-thesaurus`) are the default definition and thesaurus databases. Choose one of each using `DICTIONARY_DATABASE` and `THESAURUS_DATABASE` in the config file, environment variables `LEXICON_DICTIONARY` and `LEXICON_THESAURUS`, or CLI options `--dictionary` and `--thesaurus` (CLI overrides environment, which overrides config).
-
-```bash
-./bin/omarchy-lexicon --lookup-word apple --definition --dictionary gcide
-./bin/omarchy-lexicon --lookup-word happy --synonyms --thesaurus moby-thesaurus
-```
-
-## Repository layout
-
-```text
-omarchy-lexicon/
-├── README.md
-├── LICENSE
-├── PKGBUILD
-├── install.sh
-├── bin/
-│   └── omarchy-lexicon
-├── src/
-│   ├── cli.py
-│   ├── dict_lookup.py
-│   ├── lexicon_config.py
-│   ├── lexicon_core.py
-│   ├── sorters.py
-│   └── __init__.py
-├── config/
-│   └── default.conf
-├── docs/
-│   ├── INBOX.md
-│   ├── RELEASE_NOTES.md
-│   ├── UAT.md
-│   └── plan/
-│       └── plan.md
-├── tests/
-│   ├── test_cli.py
-│   ├── test_lexicon_core.py
-│   └── test_dict_lookup.py
-└── .gitignore
-```
-
-## How this milestone works
-
-This repository is intentionally a minimal, CLI-first milestone for the project: it gives you a stable command-line entry point and a packaging scaffold that matches the Omarchy-first installation model without requiring a full QML plugin implementation yet.
-
-### `bin/omarchy-lexicon`
-
-The executable wrapper at [bin/omarchy-lexicon](bin/omarchy-lexicon) is deliberately tiny. It does three things:
-
-1. Finds the project root or installation prefix relative to the script location.
-2. Adds the checkout's `src/` or the installed `lib/omarchy-lexicon/` directory to `sys.path`.
-3. Imports `main()` from `cli.py` and exits with its return code.
-
-That means the project can be run directly from a checkout while still exposing a clean, installable binary name for packaging.
-
-Example flow:
-
-```bash
-./bin/omarchy-lexicon --length 5 --sort alpha
-./bin/omarchy-lexicon --pattern "s.a.e" --sort alpha
-```
-
-This wrapper is the bridge between the repository layout and the eventual installed binary path (`/usr/bin/omarchy-lexicon`).
-
-### Native Omarchy plugin requirement
-
-The current CLI is the correct foundation for the project, but it is not a substitute for a rich Omarchy UX. The project now explicitly requires a native Omarchy plugin or shell integration with:
-
-- a dedicated search form for pattern, rack, and length filters
-- richer result presentation than a simple `walker --dmenu` menu
-- optional definition/synonym display in the same overlay
-- keyboard-first interactions consistent with Omarchy’s shell and app patterns
-
-This is the product requirement that replaces the `walker` shim as the intended user-facing experience.
-
-### `PKGBUILD`
-
-The Arch package file in [PKGBUILD](PKGBUILD) is a first-pass packaging milestone. It is designed to install the runtime files into the system paths an Omarchy user expects:
-
-- binary: `/usr/bin/omarchy-lexicon`
-- Python modules: `/usr/lib/omarchy-lexicon/`
-- default config: `/etc/omarchy-lexicon/default.conf`
-- docs: `/usr/share/doc/omarchy-lexicon/README.md`
-
-The package is intentionally simple:
-
-```bash
-makepkg -si
-```
-
-During a package build, Arch clones the upstream repository into `$srcdir`, then `package()` copies the relevant files from that working tree into the install root (`$pkgdir`). This allows the same repository to function both as a local dev checkout and as a package-ready source tree.
-
-The current `PKGBUILD` is a stepping stone: it installs the working CLI, defines the expected paths, and keeps the package structure aligned with the future AUR/GitHub release path without committing to a full Quickshell plugin architecture yet.
-
-### Configuration defaults
-
-You can provide defaults in `/etc/omarchy-lexicon/default.conf` (or pass another file with `--config` or `LEXICON_CONFIG`). For an `install.sh` installation, the default is `$PREFIX/etc/omarchy-lexicon/default.conf` when present, with `/etc/omarchy-lexicon/default.conf` as a fallback:
+WordNet (`wn`) and Moby (`moby-thesaurus`) are the default databases. You can customize them in `/etc/omarchy-lexicon/default.conf` or `~/.config/omarchy-lexicon/default.conf`:
 
 ```ini
 WORDLIST_PATH=/usr/share/dict/words
@@ -228,14 +109,52 @@ DICTIONARY_DATABASE=wn
 THESAURUS_DATABASE=moby-thesaurus
 ```
 
-## Planned Omarchy integration
+## Repository layout
 
-The CLI is a working foundation, but the real product requirement is a native Omarchy plugin with rich UX and integrated search/display behavior. The future plugin should support the same word-filtering engine while allowing interactive editing and result presentation inside the desktop environment rather than via a disposable `walker` wrapper.
+```text
+omarchy-lexicon/
+├── README.md
+├── LICENSE
+├── PKGBUILD
+├── install.sh
+├── uninstall.sh
+├── config/
+│   └── default.conf
+├── plugins/
+│   └── acme.lexicon/
+│       ├── manifest.json
+│       ├── LexiconOverlay.qml
+│       ├── session.js
+│       ├── search.py
+│       └── i18n/
+│           └── en.json
+├── src/
+│   ├── dict_lookup.py
+│   ├── lexicon_config.py
+│   ├── lexicon_core.py
+│   ├── sorters.py
+│   └── __init__.py
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── INBOX.md
+│   ├── RELEASE_NOTES.md
+│   ├── UAT.md
+│   └── plan/
+│       └── plan.md
+└── tests/
+    ├── test_dict_lookup.py
+    ├── test_installation.py
+    ├── test_lexicon_core.py
+    ├── test_search_gateway.py
+    └── test_session.py
+```
 
-## User acceptance testing
+## Testing
 
-For manual release validation and recorded results, follow the UAT procedure in [docs/UAT.md](./docs/UAT.md).
+Run the automated test suite from the repository root:
 
-## Release notes
+```bash
+python3 -m unittest discover -s tests
+```
 
-First package publication notes are tracked in [docs/RELEASE_NOTES.md](./docs/RELEASE_NOTES.md).
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the plugin architecture and [docs/UAT.md](./docs/UAT.md) for acceptance testing.

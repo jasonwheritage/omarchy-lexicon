@@ -1,30 +1,24 @@
 # User Acceptance Testing (UAT) Guide
 
-This guide defines a repeatable manual acceptance test process for `omarchy-lexicon`.
+This guide defines the repeatable acceptance test process for the `omarchy-lexicon` Omarchy overlay plugin (`acme.lexicon`) and its embedded search engine (`plugins/acme.lexicon/search.py`).
 
 ## 1) UAT scope
 
 UAT confirms that an end user can:
 
-- find words with length, rack, and pattern filters
-- use pattern modes (auto, wildcard, substring, regex)
-- sort results (alpha, length, score)
-- use the CLI search flow directly
-- copy selected words to clipboard
-- request definitions and see graceful fallback when unavailable
-- use config defaults and install-time package behavior
+- install and launch the `acme.lexicon` overlay in Omarchy
+- filter words by exact length, wildcard/substring/regex patterns, and rack tile pool
+- sort results alphabetically (`A–Z` / `Z–A`) and by quantity of letters (`Letters` shortest-first / longest-first)
+- switch fonts and resize the overlay with `−` / `+` buttons and `Ctrl +` / `Ctrl -`
+- view definitions and thesaurus entries when local `dictd` is running, with clear fallback messages when unavailable
+- copy words to the Wayland clipboard
 
 ## 2) Prerequisites
 
-- Linux desktop with Python 3
-- Repository checked out locally
-- Optional but recommended:
-  - `wl-copy` / `wl-paste` (from `wl-clipboard`)
-  - `dictd` and any locally configured dictionary and thesaurus databases for UAT-M04. See the [installation guidance](../README.md#wordlists-and-optional-dictionaries); the suggested Omarchy 4 packages are `wordnet-dictd`, `dict-gcide`, and `dict-moby-thesaurus`.
+- Omarchy desktop with Python 3, `words`, and `wl-clipboard`
+- Optional for dictionary and thesaurus checks: `dictd` with `wordnet-dictd` and `dict-moby-thesaurus`
 
-## 3) Test data setup
-
-Create a deterministic word list for testing:
+## 3) Deterministic test wordlist
 
 ```bash
 cat > /tmp/uat-words.txt <<'EOF'
@@ -41,187 +35,74 @@ quiz
 EOF
 ```
 
-## 4) Execution procedure
+## 4) Engine & gateway acceptance tests
 
-1. Run each test case in Section 5 in order.
-2. Record each result as Pass/Fail/Blocked in the table in Section 7.
-3. For any failure, capture:
-   - exact command used
-   - observed output
-   - expected output
-   - environment notes (installed tools, distro/session type)
-4. UAT passes only if all **Critical** and **High** tests pass.
+### UAT-C01: Exact length filter
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --length 5 --sort alpha
+```
+- Expected JSON `results`: `["apple", "grape", "rates", "stare", "tares", "tears"]`
 
-## 5) Manual acceptance test suite
+### UAT-C02: Rack tile-pool filter (including repeated tiles)
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --query ppale --rack ppale --sort alpha
+```
+- Expected JSON `results`: `["apple"]`
 
-### Critical tests
+### UAT-C03: Substring pattern mode
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --query ang --pattern-mode substring
+```
+- Expected JSON `results`: `["orange"]`
 
-#### UAT-C01: Exact length filter
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --length 5 --sort alpha
-  ```
-- Expected:
-  - includes: `apple`, `grape`, `rates`, `stare`, `tares`, `tears`
-  - excludes: `orange`, `pear`, `quiz`
+### UAT-C04: Regex pattern mode
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --query '^t.*s$' --pattern-mode regex --sort alpha
+```
+- Expected JSON `results`: `["tares", "tears"]`
 
-#### UAT-C02: Rack filter
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --rack aerst --sort alpha
-  ```
-- Expected:
-  - output is exactly: `rates`, `stare`, `tares`, `tears`
+### UAT-C05: Descending sort
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --length 4 --sort alpha_desc
+```
+- Expected JSON `results`: `["quiz", "plum", "pear"]`
 
-#### UAT-C03: Pattern mode substring
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern ang --pattern-mode substring
-  ```
-- Expected:
-  - output is exactly: `orange`
+### UAT-H01: Invalid regex handling
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --query '(' --pattern-mode regex
+```
+- Expected: exit code `2` and JSON `"ok": false` with `"Invalid regular expression"` in `"error"`.
 
-#### UAT-C04: Pattern mode regex
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern '^t.*s$' --pattern-mode regex --sort alpha
-  ```
-- Expected:
-  - output is exactly: `tares`, `tears`
+### UAT-H02: Invalid length range handling
+```bash
+python3 ./plugins/acme.lexicon/search.py --wordlist /tmp/uat-words.txt --min-length 7 --max-length 3
+```
+- Expected: exit code `2` and JSON `"ok": false` with `"--min-length cannot be greater than --max-length."` in `"error"`.
 
-#### UAT-C05: Score sort
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --sort score_desc --limit 3
-  ```
-- Expected:
-  - first result is `quiz`
+### UAT-H03: Config defaults load
+```bash
+cat > /tmp/uat.conf <<'EOF'
+WORDLIST_PATH=/tmp/uat-words.txt
+SORT_MODE=score_desc
+DEFAULT_PATTERN=ang
+PATTERN_MODE=substring
+EOF
+python3 ./plugins/acme.lexicon/search.py --config /tmp/uat.conf
+```
+- Expected JSON `results`: `["orange"]`
 
-### High tests
+### UAT-M01: Self-contained plugin install
+```bash
+UAT_DIR="$(mktemp -d)"
+PREFIX="$UAT_DIR/prefix" PLUGIN_TARGET_DIR="$UAT_DIR/plugin" HOME="$UAT_DIR" ./install.sh
+python3 "$UAT_DIR/plugin/search.py" --wordlist /tmp/uat-words.txt --query app
+```
+- Expected: `$UAT_DIR/plugin` contains `manifest.json`, `LexiconOverlay.qml`, `session.js`, `search.py`, `lexicon_core.py`, and `i18n/en.json`, no `bin/omarchy-lexicon` binary is created, and the command outputs `"apple"`.
 
-#### UAT-H01: Invalid regex handling
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern '(' --pattern-mode regex
-  echo $?
-  ```
-- Expected:
-  - non-zero exit code (2)
-  - clear regex error message to stderr
+## 5) Interactive overlay verification
 
-#### UAT-H02: Invalid range handling
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --min-length 7 --max-length 3
-  echo $?
-  ```
-- Expected:
-  - non-zero exit code (2)
-  - stderr says min length cannot exceed max length
-
-#### UAT-H03: Config defaults load
-- Setup:
-  ```bash
-  cat > /tmp/uat.conf <<'EOF'
-  WORDLIST_PATH=/tmp/uat-words.txt
-  SORT_MODE=score_desc
-  DEFAULT_PATTERN=ang
-  PATTERN_MODE=substring
-  EOF
-  ```
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --config /tmp/uat.conf
-  ```
-- Expected:
-  - output is exactly: `orange`
-
-#### UAT-H04: Clipboard copy
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern quiz --copy
-  wl-paste
-  ```
-- Expected:
-  - command prints `quiz`
-  - clipboard content is `quiz` (if `wl-copy/wl-paste` available)
-
-### Medium tests
-
-#### UAT-M01: Missing dictionary fallback
-- Run with `dict` hidden from the subprocess search path (no service configuration is changed):
-  ```bash
-  PATH=/nonexistent /usr/bin/python3 ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern apple --definition
-  ```
-- Expected: `apple` appears followed by a clear dictionary-unavailable message; the search completes.
-
-#### UAT-M02: CLI lookup and clipboard flow
-- Command:
-  ```bash
-  ./bin/omarchy-lexicon --wordlist /tmp/uat-words.txt --pattern quiz --copy
-  wl-paste
-  ```
-- Expected:
-  - the command prints `quiz`
-  - the selected word is copied to clipboard (if `wl-copy` is available)
-  - if `dict` is installed, a lookup can be run separately with `--definition` or `--synonyms`
-
-#### UAT-M03: Install script
-- Run in an isolated temporary prefix without changing desktop keybindings:
-  ```bash
-  UAT_PREFIX="$(mktemp -d)"
-  PREFIX="$UAT_PREFIX" KEYBIND_TARGET_DIR="$UAT_PREFIX/no-keybinds" ./install.sh
-  printf 'apple\n' | "$UAT_PREFIX/bin/omarchy-lexicon" --from-stdin
-  ```
-- Expected: binaries and config are installed under the temporary prefix, and the installed command prints `apple` without an import error.
-
-#### UAT-M04: Configured dictionary and thesaurus
-- With local `dictd` running, check installed database names:
-  ```bash
-  dict -h localhost -D
-  ```
-- Create a temporary config choosing one dictionary and one thesaurus; replace the names if using different databases:
-  ```bash
-  cat > /tmp/uat-dictionaries.conf <<'EOF'
-  DICTIONARY_DATABASE=gcide
-  THESAURUS_DATABASE=moby-thesaurus
-  EOF
-  ./bin/omarchy-lexicon --config /tmp/uat-dictionaries.conf --lookup-word happy --definition --synonyms
-  ```
-- Expected: a definition from GCIDE and similar words from Moby appear. The lookup does not require a wordlist. Record Blocked if the chosen databases are not installed or running.
-- Optional override check: add `--dictionary wn` and confirm the definition is from WordNet instead. The thesaurus selection stays unchanged.
-
-## 6) Acceptance criteria
-
-Release candidate is acceptable when:
-
-- All Critical tests pass
-- All High tests pass
-- No more than one Medium failure, and that failure has a documented workaround
-
-## 7) UAT results
-
-Latest results: 15 November 2026. Automated tests used a temporary wordlist and isolated install prefix; the local `dictd` served WordNet, GCIDE and Moby. **All 13 tests passed.**
-
-| Test ID | Result | Notes |
-|---|---|---|
-| UAT-C01 | Pass | Exact-length results matched. |
-| UAT-C02 | Pass | Rack results matched. |
-| UAT-C03 | Pass | Substring returned `orange`. |
-| UAT-C04 | Pass | Regex returned `tares` and `tears`. |
-| UAT-C05 | Pass | `quiz` ranked first. |
-| UAT-H01 | Pass | Invalid regex exits 2 and identifies the invalid regular expression. |
-| UAT-H02 | Pass | Invalid range exited 2 with an explanatory error. |
-| UAT-H03 | Pass | Configured defaults returned `orange`. |
-| UAT-H04 | Pass | Clipboard copy confirmed by the user. |
-| UAT-M01 | Pass | Missing `dict` produced the unavailable message without blocking the search. |
-| UAT-M02 | Pass | CLI clipboard flow confirmed by the user. |
-| UAT-M03 | Pass | Isolated installation and staged package CLI checks passed after the runtime-module fix. |
-| UAT-M04 | Pass | GCIDE and Moby returned results; the WordNet override worked. |
-
-**Resolved issues**
-
-- UAT-M03 previously failed with `ModuleNotFoundError: No module named 'cli'`; runtime modules are now installed and exercised from outside the checkout.
-- UAT-H01 now labels invalid regular expressions in response to earlier clarity feedback.
-
-Earlier manual notes recorded C01–C04 as OK; their statuses were pending. A note under C05 reported the invalid-regex message, which concerns H01 rather than the score-sort test.
+1. Run `./install.sh` and open the overlay with `omarchy-shell shell toggle acme.lexicon`.
+2. Type `ppale`, click `Rack`, and confirm `Length` resets to `Any` and `apple` appears in the Words list.
+3. Click `apple` in the Words list and confirm its definition and thesaurus entries load.
+4. Click `Theme`, `Sans`, `Serif`, `Mono`, and `Writer` and confirm the overlay font updates immediately.
+5. Click `−` and `+` (and press `Ctrl +` / `Ctrl -`) and confirm the overlay scales between `75%` and `200%`.

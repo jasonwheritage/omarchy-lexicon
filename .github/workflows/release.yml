@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to package (for example v1.0.0)"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish Omarchy plugin release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq quickjs wamerican
+
+      - name: Verify version consistency across manifests and PKGBUILD
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          RAW_TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          VERSION="${RAW_TAG#v}"
+          ROOT_VER="$(jq -r '.version' manifest.json)"
+          PLUGIN_VER="$(jq -r '.version' plugins/acme.lexicon/manifest.json)"
+          PKG_VER="$(sed -n 's/^pkgver=//p' PKGBUILD)"
+          if [ "$ROOT_VER" != "$VERSION" ] || [ "$PLUGIN_VER" != "$VERSION" ] || [ "$PKG_VER" != "$VERSION" ]; then
+            echo "Version mismatch for tag $RAW_TAG: manifest.json=$ROOT_VER plugin=$PLUGIN_VER PKGBUILD=$PKG_VER" >&2
+            exit 1
+          fi
+          echo "RELEASE_TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run test suite
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Build self-contained Omarchy plugin archive
+        run: |
+          STAGE_DIR="$(mktemp -d)"
+          BUNDLE_DIR="$STAGE_DIR/acme.lexicon"
+          PLUGIN_TARGET_DIR="$BUNDLE_DIR" PREFIX="$STAGE_DIR/prefix" HOME="$STAGE_DIR" ./install.sh
+          install -m644 config/default.conf "$BUNDLE_DIR/default.conf"
+          install -m644 README.md "$BUNDLE_DIR/README.md"
+          install -m644 LICENSE "$BUNDLE_DIR/LICENSE"
+
+          mkdir -p dist
+          ARCHIVE="dist/acme.lexicon-${RELEASE_TAG}.tar.gz"
+          tar -C "$STAGE_DIR" -czf "$ARCHIVE" acme.lexicon
+          (cd dist && sha256sum "acme.lexicon-${RELEASE_TAG}.tar.gz" > SHA256SUMS)
+
+      - name: Extract release notes for tag
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          notes_text = Path("docs/RELEASE_NOTES.md").read_text(encoding="utf-8")
+          pattern = rf"^##\s+{re.escape(tag)}\b.*?(?=^##\s+|\Z)"
+          match = re.search(pattern, notes_text, flags=re.MULTILINE | re.DOTALL)
+          body = match.group(0).strip() if match else notes_text.strip()
+          Path("dist/RELEASE_BODY.md").write_text(body + "\n", encoding="utf-8")
+          PY
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "omarchy-lexicon ${{ env.RELEASE_TAG }}"
+          body_path: dist/RELEASE_BODY.md
+          generate_release_notes: true
+          files: |
+            dist/acme.lexicon-${{ env.RELEASE_TAG }}.tar.gz
+            dist/SHA256SUMS

@@ -6,17 +6,24 @@ from typing import Dict
 DEFAULT_CONFIG_PATH = "/etc/omarchy-lexicon/default.conf"
 
 
+def _candidate_config_paths(module_dir: str) -> list[str]:
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    xdg_config = os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+    prefix = os.path.dirname(os.path.dirname(module_dir))
+    return [
+        os.path.join(module_dir, "default.conf"),
+        os.path.join(xdg_config, "omarchy-lexicon", "default.conf"),
+        os.path.join(home, ".local", "etc", "omarchy-lexicon", "default.conf"),
+        os.path.join(prefix, "etc", "omarchy-lexicon", "default.conf"),
+        DEFAULT_CONFIG_PATH,
+    ]
+
+
 def load_config(path: str | None) -> Dict[str, str]:
     if path is None:
         module_dir = os.path.dirname(os.path.abspath(__file__))
-        prefix = os.path.dirname(os.path.dirname(module_dir))
-        installed_path = os.path.join(prefix, "etc", "omarchy-lexicon", "default.conf")
-        installed_layout = os.path.basename(module_dir) == "omarchy-lexicon" and os.path.basename(os.path.dirname(module_dir)) == "lib"
-        if installed_layout and os.path.exists(installed_path):
-            target_path = installed_path
-        elif os.path.exists(DEFAULT_CONFIG_PATH):
-            target_path = DEFAULT_CONFIG_PATH
-        else:
+        target_path = next((candidate for candidate in _candidate_config_paths(module_dir) if os.path.exists(candidate)), None)
+        if target_path is None:
             return {}
     else:
         target_path = path

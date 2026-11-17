@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an improvement or new feature for omarchy-lexicon
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case
+      description: What word-lookup or dictionary workflow would this improve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: How should the control, shortcut, or filter work inside the Omarchy overlay?
+    validations:
+      required: true

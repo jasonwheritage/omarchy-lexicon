@@ -77,6 +77,8 @@ class WordFinderTests(unittest.TestCase):
         finder = WordFinder(self.tempfile.name)
         result = finder.sort_words(["pear", "apple", "orange"], mode="length_asc")
         self.assertEqual(result, ["pear", "apple", "orange"])
+        desc_result = finder.sort_words(["pear", "apple", "orange"], mode="length_desc")
+        self.assertEqual(desc_result, ["orange", "apple", "pear"])
 
     def test_min_max_length_filter(self):
         finder = WordFinder(self.tempfile.name)

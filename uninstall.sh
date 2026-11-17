@@ -34,12 +34,14 @@ BIN_PATH="${DESTDIR_PREFIX}${PREFIX}/bin/omarchy-lexicon"
 CONFIG_PATH="${DESTDIR_PREFIX}${PREFIX}/etc/omarchy-lexicon"
 DOC_PATH="${DESTDIR_PREFIX}${PREFIX}/share/doc/omarchy-lexicon"
 LIB_PATH="${DESTDIR_PREFIX}${PREFIX}/lib/omarchy-lexicon"
+SHARED_PLUGIN_PATH="${DESTDIR_PREFIX}${PREFIX}/share/omarchy-lexicon"
 PLUGIN_TARGET_DIR="${PLUGIN_TARGET_DIR:-${XDG_CONFIG_HOME}/omarchy/plugins/acme.lexicon}"
 
 rm -f "${BIN_PATH}"
 rm -rf "${CONFIG_PATH}"
 rm -rf "${DOC_PATH}"
 rm -rf "${LIB_PATH}"
+rm -rf "${SHARED_PLUGIN_PATH}"
 
 SHELL_JSON="${XDG_CONFIG_HOME}/omarchy/shell.json"
 
@@ -77,7 +79,8 @@ if len(updated) != len(plugins):
   fi
 fi
 
-printf 'Removed omarchy-lexicon installation from %s\n' "${PREFIX}"
 if [ -z "${DESTDIR:-}" ]; then
   printf 'Removed Omarchy plugin from %s\n' "${PLUGIN_TARGET_DIR}"
+else
+  printf 'Removed staged Omarchy plugin from %s\n' "${SHARED_PLUGIN_PATH}"
 fi

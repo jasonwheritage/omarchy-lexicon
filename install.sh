@@ -53,29 +53,39 @@ if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then
 fi
 
 DESTDIR_PREFIX="${DESTDIR:-}"
-BIN_DIR="${DESTDIR_PREFIX}${PREFIX}/bin"
 CONFIG_DIR="${DESTDIR_PREFIX}${PREFIX}/etc/omarchy-lexicon"
 DOC_DIR="${DESTDIR_PREFIX}${PREFIX}/share/doc/omarchy-lexicon"
-LIB_DIR="${DESTDIR_PREFIX}${PREFIX}/lib/omarchy-lexicon"
+SHARED_PLUGIN_DIR="${DESTDIR_PREFIX}${PREFIX}/share/omarchy-lexicon/plugins/acme.lexicon"
 PLUGIN_TARGET_DIR="${PLUGIN_TARGET_DIR:-${XDG_CONFIG_HOME}/omarchy/plugins/acme.lexicon}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-install -d "${BIN_DIR}" "${CONFIG_DIR}" "${DOC_DIR}" "${LIB_DIR}"
-install -m755 "${ROOT_DIR}/bin/omarchy-lexicon" "${BIN_DIR}/omarchy-lexicon"
-install -m644 "${ROOT_DIR}"/src/*.py "${LIB_DIR}/"
+install_plugin_tree() {
+  local dest="${1}"
+  install -d "${dest}" "${dest}/i18n"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/manifest.json" "${dest}/manifest.json"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/LexiconOverlay.qml" "${dest}/LexiconOverlay.qml"
+  install -m755 "${ROOT_DIR}/plugins/acme.lexicon/search.py" "${dest}/search.py"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/session.js" "${dest}/session.js"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/i18n/en.json" "${dest}/i18n/en.json"
+  for module in "${ROOT_DIR}"/src/*.py; do
+    install -m644 "${module}" "${dest}/$(basename "${module}")"
+  done
+}
+
+install -d "${CONFIG_DIR}" "${DOC_DIR}"
 if [ ! -e "${CONFIG_DIR}/default.conf" ]; then
   install -m644 "${ROOT_DIR}/config/default.conf" "${CONFIG_DIR}/default.conf"
 fi
 install -m644 "${ROOT_DIR}/README.md" "${DOC_DIR}/README.md"
 
-if [ -z "${DESTDIR:-}" ]; then
-  install -d "${PLUGIN_TARGET_DIR}"
-  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/manifest.json" "${PLUGIN_TARGET_DIR}/manifest.json"
-  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/LexiconOverlay.qml" "${PLUGIN_TARGET_DIR}/LexiconOverlay.qml"
-  install -m755 "${ROOT_DIR}/plugins/acme.lexicon/search.py" "${PLUGIN_TARGET_DIR}/search.py"
-  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/session.js" "${PLUGIN_TARGET_DIR}/session.js"
-  install -d "${PLUGIN_TARGET_DIR}/i18n"
-  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/i18n/en.json" "${PLUGIN_TARGET_DIR}/i18n/en.json"
+if [ -n "${DESTDIR:-}" ]; then
+  install_plugin_tree "${SHARED_PLUGIN_DIR}"
+else
+  # Clean up any legacy standalone CLI binary or library dir from older installs.
+  rm -f "${PREFIX}/bin/omarchy-lexicon" 2>/dev/null || true
+  rm -rf "${PREFIX}/lib/omarchy-lexicon" 2>/dev/null || true
+
+  install_plugin_tree "${PLUGIN_TARGET_DIR}"
   if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then
     restore_sudo_user_ownership "${PLUGIN_TARGET_DIR}"
   fi
@@ -119,9 +129,10 @@ if [ -z "${DESTDIR:-}" ] && [ -d "${USER_HOME}/.cache/quickshell" ]; then
   fi
 fi
 
-printf 'Installed omarchy-lexicon to %s\n' "${PREFIX}"
 if [ -z "${DESTDIR:-}" ]; then
   printf 'Installed Omarchy plugin to %s\n' "${PLUGIN_TARGET_DIR}"
   printf 'Plugin registered in %s\n' "${SHELL_JSON}"
-  printf 'To launch: bind a key to: omarchy launch acme.lexicon\n'
+  printf 'To launch: omarchy-shell shell toggle acme.lexicon\n'
+else
+  printf 'Staged Omarchy plugin to %s\n' "${SHARED_PLUGIN_DIR}"
 fi

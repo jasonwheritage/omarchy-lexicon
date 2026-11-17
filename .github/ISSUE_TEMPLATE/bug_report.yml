@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a problem with the omarchy-lexicon overlay plugin
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue with `omarchy-lexicon` (`acme.lexicon`). Fill in the details below so we can reproduce and fix it quickly.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the unexpected behavior in the overlay or search results.
+      placeholder: Clicking Rack with pattern "ppale" did not update the word list…
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps or keystrokes to trigger the issue.
+      placeholder: |
+        1. Open the overlay with `omarchy-shell shell toggle acme.lexicon`
+        2. Type `ppale`
+        3. Click `Rack`
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      options:
+        - omarchy plugin add (marketplace / git)
+        - ./install.sh (local checkout)
+        - makepkg -si (PKGBUILD)
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Omarchy & plugin version
+      description: Output of `omarchy version` and the plugin version from `manifest.json`.
+      placeholder: Omarchy 4.x / acme.lexicon v1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Shell logs & dictionary status
+      description: Output of `journalctl --user -u omarchy-shell -n 40 --no-pager` or `dict -h localhost -D` if relevant.
+      render: shell
