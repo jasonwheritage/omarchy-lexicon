@@ -1,0 +1,7 @@
+{
+  "search.hint": "Pattern, substring, len=5, or rack=letters",
+  "search.running": "Searching…",
+  "search.error": "Search error",
+  "results.none": "No matches for %1",
+  "results.count": { "one": "%1 match", "other": "%1 matches" }
+}

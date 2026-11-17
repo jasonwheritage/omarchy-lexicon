@@ -4,24 +4,85 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+_QUERY_FIELD = re.compile(r"^(len|length|min|max|rack)=(\S+)$", re.IGNORECASE)
+
 
 def _resolve_backend() -> str:
-    candidates = [
-        Path(__file__).resolve().parents[2] / "bin" / "omarchy-lexicon",
-        Path("/usr/local/bin/omarchy-lexicon"),
-        Path("/usr/bin/omarchy-lexicon"),
-    ]
+    home = Path(os.environ.get("HOME") or str(Path.home()))
+    candidates = []
+    on_path = shutil.which("omarchy-lexicon")
+    if on_path:
+        candidates.append(Path(on_path))
+    candidates.extend(
+        [
+            Path(__file__).resolve().parents[2] / "bin" / "omarchy-lexicon",
+            home / ".local" / "bin" / "omarchy-lexicon",
+            Path("/usr/local/bin/omarchy-lexicon"),
+            Path("/usr/bin/omarchy-lexicon"),
+        ]
+    )
+    seen: set[str] = set()
     for candidate in candidates:
-        if candidate.exists() and candidate.is_file():
-            return str(candidate)
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return key
     raise FileNotFoundError("omarchy-lexicon backend not found; install it or run the repo checkout")
 
 
+def _interpret_query(query: str) -> dict[str, object]:
+    pattern_parts: list[str] = []
+    fields: dict[str, object] = {"pattern": ""}
+    for token in query.split():
+        match = _QUERY_FIELD.match(token)
+        if match is None:
+            pattern_parts.append(token)
+            continue
+        key = match.group(1).lower()
+        value = match.group(2)
+        if key == "rack":
+            if value.isalpha():
+                fields["rack"] = value.lower()
+            else:
+                pattern_parts.append(token)
+            continue
+        if not value.isdigit():
+            pattern_parts.append(token)
+            continue
+        number = int(value)
+        if key in {"len", "length"}:
+            fields["length"] = number
+        elif key == "min":
+            fields["min_length"] = number
+        else:
+            fields["max_length"] = number
+    fields["pattern"] = " ".join(pattern_parts)
+    return fields
+
+
+def _apply_query_fields(args: argparse.Namespace) -> None:
+    interpreted = _interpret_query(args.query)
+    args.query = str(interpreted["pattern"])
+    if args.length is None and "length" in interpreted:
+        args.length = interpreted["length"]
+    if args.min_length is None and "min_length" in interpreted:
+        args.min_length = interpreted["min_length"]
+    if args.max_length is None and "max_length" in interpreted:
+        args.max_length = interpreted["max_length"]
+    if not args.rack and interpreted.get("rack"):
+        args.rack = str(interpreted["rack"])
+
+
 def _build_command(args: argparse.Namespace) -> list[str]:
+    _apply_query_fields(args)
     backend = _resolve_backend()
     command = [backend, "--json", "--sort", args.sort, "--limit", str(args.limit)]
 

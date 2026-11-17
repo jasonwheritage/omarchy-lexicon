@@ -41,6 +41,8 @@ rm -rf "${CONFIG_PATH}"
 rm -rf "${DOC_PATH}"
 rm -rf "${LIB_PATH}"
 
+SHELL_JSON="${XDG_CONFIG_HOME}/omarchy/shell.json"
+
 if [ -z "${DESTDIR:-}" ]; then
   rm -rf "${PLUGIN_TARGET_DIR}"
 
@@ -53,9 +55,29 @@ if [ -z "${DESTDIR:-}" ]; then
   if [ -d "${omarchy_parent}" ]; then
     rmdir --ignore-fail-on-non-empty "${omarchy_parent}" 2>/dev/null || true
   fi
+
+  if [ -f "${SHELL_JSON}" ]; then
+    python3 -I -c "
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        config = json.load(f)
+except Exception:
+    sys.exit(0)
+plugin_id = 'acme.lexicon'
+plugins = config.get('plugins', [])
+updated = [p for p in plugins if not (isinstance(p, dict) and p.get('id') == plugin_id)]
+if len(updated) != len(plugins):
+    config['plugins'] = updated
+    with open(path, 'w') as f:
+        json.dump(config, f, indent=2)
+        f.write('\n')
+" "${SHELL_JSON}" 2>/dev/null || true
+  fi
 fi
 
 printf 'Removed omarchy-lexicon installation from %s\n' "${PREFIX}"
 if [ -z "${DESTDIR:-}" ]; then
-  printf 'Removed Omarchy plugin from %s\n' "${PLUGIN_TARGET_DIR}"r
+  printf 'Removed Omarchy plugin from %s\n' "${PLUGIN_TARGET_DIR}"
 fi

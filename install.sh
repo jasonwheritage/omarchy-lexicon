@@ -73,8 +73,34 @@ if [ -z "${DESTDIR:-}" ]; then
   install -m644 "${ROOT_DIR}/plugins/acme.lexicon/manifest.json" "${PLUGIN_TARGET_DIR}/manifest.json"
   install -m644 "${ROOT_DIR}/plugins/acme.lexicon/LexiconOverlay.qml" "${PLUGIN_TARGET_DIR}/LexiconOverlay.qml"
   install -m755 "${ROOT_DIR}/plugins/acme.lexicon/search.py" "${PLUGIN_TARGET_DIR}/search.py"
+  install -d "${PLUGIN_TARGET_DIR}/i18n"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/i18n/en.json" "${PLUGIN_TARGET_DIR}/i18n/en.json"
   if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then
     restore_sudo_user_ownership "${PLUGIN_TARGET_DIR}"
+  fi
+fi
+
+SHELL_JSON="${XDG_CONFIG_HOME}/omarchy/shell.json"
+if [ -z "${DESTDIR:-}" ] && [ -f "${SHELL_JSON}" ]; then
+  python3 -I -c "
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        config = json.load(f)
+except Exception:
+    sys.exit(0)
+plugin_id = 'acme.lexicon'
+plugins = config.get('plugins', [])
+if not any(isinstance(p, dict) and p.get('id') == plugin_id for p in plugins):
+    plugins.append({'id': plugin_id})
+    config['plugins'] = plugins
+    with open(path, 'w') as f:
+        json.dump(config, f, indent=2)
+        f.write('\n')
+" "${SHELL_JSON}" 2>/dev/null || true
+  if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then
+    restore_sudo_user_ownership "${SHELL_JSON}"
   fi
 fi
 
@@ -83,7 +109,13 @@ if [ ! -e /usr/share/dict/words ] && [ ! -e /usr/share/dict/words.txt ] && comma
   printf 'Example: sudo pacman -S --needed words\n' >&2
 fi
 
+if [ -z "${DESTDIR:-}" ] && command -v omarchy-shell >/dev/null 2>&1; then
+  omarchy-shell shell rescanPlugins 2>/dev/null || true
+fi
+
 printf 'Installed omarchy-lexicon to %s\n' "${PREFIX}"
 if [ -z "${DESTDIR:-}" ]; then
   printf 'Installed Omarchy plugin to %s\n' "${PLUGIN_TARGET_DIR}"
+  printf 'Plugin registered in %s\n' "${SHELL_JSON}"
+  printf 'To launch: bind a key to: omarchy launch acme.lexicon\n'
 fi
