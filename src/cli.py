@@ -13,7 +13,7 @@ from dict_lookup import DictionaryLookup
 from lexicon_core import DEFAULT_WORDLIST, WordFinder
 from lexicon_config import load_config
 
-SORT_CHOICES = ("alpha", "length_asc", "length_desc", "score_desc", "score_asc")
+SORT_CHOICES = ("alpha", "alpha_desc", "length_asc", "length_desc", "score_desc", "score_asc")
 PATTERN_MODE_CHOICES = ("auto", "wildcard", "substring", "regex")
 
 

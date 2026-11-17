@@ -100,6 +100,19 @@ class SearchGatewayTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("anarchy", result.stdout)
 
+    def test_thesaurus_text_becomes_words(self):
+        search = load_search()
+        text = """
+1 definition found
+
+From Moby Thesaurus II by Grady Ward, 1.0 [moby-thesaurus]:
+
+  4 Moby Thesaurus words for "happy":
+     bright and sunny, glad, joyful, beaming
+"""
+        words = search.parse_thesaurus_text(text, "happy")
+        self.assertEqual(words, ["bright", "sunny", "glad", "joyful", "beaming"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -44,6 +44,28 @@ class WordFinderTests(unittest.TestCase):
         result = finder.filter_words(self.words, rack="aerst")
         self.assertEqual(set(result), {"stare", "rates", "tears", "tares"})
 
+    def test_rack_count_limits_every_pattern_mode(self):
+        finder = WordFinder(self.tempfile.name)
+        words = ["apple", "ape", "pale", "apply", "plea"]
+        bare = finder.filter_words(words, rack="aple")
+        self.assertNotIn("apple", bare)
+        self.assertIn("pale", bare)
+        cases = (
+            ("substring", "ap"),
+            ("wildcard", "ap*"),
+            ("regex", "ap"),
+            ("auto", "ap*"),
+        )
+        for mode, pattern in cases:
+            result = finder.filter_words(words, pattern=pattern, pattern_mode=mode, rack="aple")
+            self.assertNotIn("apple", result, mode)
+            self.assertIn("ape", result, mode)
+
+    def test_alpha_desc_reverses_alpha(self):
+        finder = WordFinder(self.tempfile.name)
+        result = finder.sort_words(["pear", "apple", "orange"], mode="alpha_desc")
+        self.assertEqual(result, ["pear", "orange", "apple"])
+
     def test_sort_mode(self):
         finder = WordFinder(self.tempfile.name)
         result = finder.sort_words(["pear", "apple", "orange"], mode="length_asc")

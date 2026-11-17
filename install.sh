@@ -73,6 +73,7 @@ if [ -z "${DESTDIR:-}" ]; then
   install -m644 "${ROOT_DIR}/plugins/acme.lexicon/manifest.json" "${PLUGIN_TARGET_DIR}/manifest.json"
   install -m644 "${ROOT_DIR}/plugins/acme.lexicon/LexiconOverlay.qml" "${PLUGIN_TARGET_DIR}/LexiconOverlay.qml"
   install -m755 "${ROOT_DIR}/plugins/acme.lexicon/search.py" "${PLUGIN_TARGET_DIR}/search.py"
+  install -m644 "${ROOT_DIR}/plugins/acme.lexicon/session.js" "${PLUGIN_TARGET_DIR}/session.js"
   install -d "${PLUGIN_TARGET_DIR}/i18n"
   install -m644 "${ROOT_DIR}/plugins/acme.lexicon/i18n/en.json" "${PLUGIN_TARGET_DIR}/i18n/en.json"
   if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then

@@ -48,6 +48,7 @@ class InstallationTests(unittest.TestCase):
         self.assertTrue(manifest.exists())
         self.assertTrue((plugin_target / "LexiconOverlay.qml").exists())
         self.assertTrue((plugin_target / "search.py").exists())
+        self.assertTrue((plugin_target / "session.js").exists())
 
         result = subprocess.run([
             "python3",

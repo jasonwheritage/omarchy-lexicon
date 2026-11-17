@@ -15,4 +15,6 @@ def sort_words(words: Iterable[str], mode: str = "alpha") -> List[str]:
         return sorted(ordered, key=lambda item: (-score_word(item), item))
     if mode == "score_asc":
         return sorted(ordered, key=lambda item: (score_word(item), item))
+    if mode == "alpha_desc":
+        return list(reversed(ordered))
     return ordered

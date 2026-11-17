@@ -1,7 +1,19 @@
 {
-  "search.hint": "Pattern, substring, len=5, or rack=letters",
+  "search.hint": "Pattern",
   "search.running": "Searching…",
   "search.error": "Search error",
   "results.none": "No matches for %1",
-  "results.count": { "one": "%1 match", "other": "%1 matches" }
+  "results.count": { "one": "%1 match", "other": "%1 matches" },
+  "hint.line": "Starts with ing*    Ends with *ing    One letter ?    Any run *",
+  "option.length": "Length",
+  "option.any": "Any",
+  "option.rack": "Rack",
+  "option.ascending": "Ascending",
+  "option.descending": "Descending",
+  "column.words": "Words",
+  "column.meaning": "Meaning",
+  "column.thesaurus": "Thesaurus",
+  "meaning.empty": "Select a word",
+  "thesaurus.empty": "No similar words",
+  "thesaurus.unavailable": "Thesaurus unavailable"
 }

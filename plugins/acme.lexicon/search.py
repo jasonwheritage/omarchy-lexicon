@@ -106,6 +106,57 @@ def _build_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
+_THESAURUS_SKIP = {"and", "the", "for", "with", "from"}
+_THESAURUS_WORD = re.compile(r"[A-Za-z][A-Za-z'-]*")
+
+
+def parse_thesaurus_text(text: str, headword: str, limit: int = 200) -> list[str]:
+    lines = text.splitlines()
+    start = 0
+    for index, line in enumerate(lines):
+        if "words for" in line.lower():
+            start = index + 1
+            break
+    body = " ".join(lines[start:])
+    head = re.sub(r"[^a-z]", "", headword.lower())
+    seen: set[str] = set()
+    words: list[str] = []
+    for match in _THESAURUS_WORD.finditer(body):
+        word = match.group(0).lower().replace("'", "")
+        if len(word) < 3 or word == head or word in _THESAURUS_SKIP or word in seen:
+            continue
+        seen.add(word)
+        words.append(word)
+        if len(words) >= limit:
+            break
+    return words
+
+
+def lookup_thesaurus(word: str) -> dict[str, object]:
+    cleaned = re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
+    if not cleaned:
+        return {"ok": True, "word": "", "results": []}
+    if shutil.which("dict") is None:
+        return {"ok": False, "error": "Thesaurus unavailable", "results": []}
+    try:
+        result = subprocess.run(
+            ["dict", "-h", "localhost", "-d", "moby-thesaurus", "--", cleaned],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"ok": False, "error": "Thesaurus unavailable", "results": []}
+    text = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+    if "cannot connect" in text.lower():
+        return {"ok": False, "error": "Thesaurus unavailable", "results": []}
+    results = parse_thesaurus_text(text, cleaned)
+    if result.returncode != 0 and not results and "no definitions" not in text.lower():
+        return {"ok": False, "error": "Thesaurus unavailable", "results": []}
+    return {"ok": True, "word": cleaned, "results": results}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Omarchy plugin search gateway for omarchy-lexicon")
     parser.add_argument("--query", default="", help="Query pattern to match, for example s.a.e or ing")
@@ -114,9 +165,15 @@ def main() -> int:
     parser.add_argument("--max-length", type=int, default=None, help="Maximum word length")
     parser.add_argument("--rack", default="", help="Available rack letters")
     parser.add_argument("--pattern-mode", choices=("auto", "wildcard", "substring", "regex"), default="auto")
-    parser.add_argument("--sort", choices=("alpha", "length_asc", "length_desc", "score_desc", "score_asc"), default="alpha")
+    parser.add_argument("--sort", choices=("alpha", "alpha_desc", "length_asc", "length_desc", "score_desc", "score_asc"), default="alpha")
     parser.add_argument("--limit", type=int, default=25, help="Maximum number of results to return")
+    parser.add_argument("--thesaurus", default="", help="List similar words for this headword")
     args = parser.parse_args()
+
+    if args.thesaurus:
+        payload = lookup_thesaurus(args.thesaurus)
+        print(json.dumps(payload, ensure_ascii=False))
+        return 0 if payload.get("ok") else 1
 
     try:
         command = _build_command(args)
