@@ -4,7 +4,7 @@
 # Python search engine modules.
 
 pkgname=omarchy-lexicon
-pkgver=1.1.0
+pkgver=1.1.1
 pkgrel=1
 pkgdesc="Native Omarchy word-finder and dictionary overlay plugin"
 arch=('any')

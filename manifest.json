@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "acme.lexicon",
   "name": "Lexicon",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "kinds": ["overlay"],
   "entryPoints": {
     "overlay": "plugins/acme.lexicon/LexiconOverlay.qml"

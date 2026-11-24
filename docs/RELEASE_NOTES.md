@@ -1,5 +1,16 @@
 # Release notes
 
+## v1.1.1
+
+A safety release: Lexicon no longer changes your configuration without your say-so.
+
+### Fixes
+
+- Arch package upgrades keep your edited `/etc/omarchy-lexicon/default.conf`; pacman saves the new default as `default.conf.pacnew`.
+- `./uninstall.sh` keeps your configuration and saved searches. Use `./uninstall.sh --purge` to delete them too.
+- Adding and removing the `acme.lexicon` entry in `~/.config/omarchy/shell.json` now keeps the rest of the file and its formatting, writes safely so an interrupted install can't break it, works with symlinked dotfiles, and leaves the file untouched (with a warning) if it can't be read safely.
+- `~/.config/omarchy-lexicon/default.conf` always takes priority. The release download now includes the config only as `default.conf.example`, so it can't override your settings.
+
 ## v1.1.0
 
 A redesign of the overlay into a split view, with friendlier dictionary lookups and clearer setup instructions.
