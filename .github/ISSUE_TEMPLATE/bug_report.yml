@@ -53,7 +53,7 @@ body:
     attributes:
       label: Omarchy & plugin version
       description: Output of `omarchy version` and the plugin version from `manifest.json`.
-      placeholder: Omarchy 4.x / acme.lexicon v1.0.0
+      placeholder: Omarchy 4.x / acme.lexicon v1.1.0
     validations:
       required: true
 

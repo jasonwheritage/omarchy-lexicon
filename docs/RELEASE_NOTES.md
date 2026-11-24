@@ -1,5 +1,20 @@
 # Release notes
 
+## v1.1.0
+
+A redesign of the overlay into a split view, with friendlier dictionary lookups and clearer setup instructions.
+
+### Highlights
+
+- New split-view layout: a word list with letter counts on the left, and a detail card with `Meaning` and `Synonyms` tabs on the right.
+- A much clearer selected word (accent bar, border and bold text), and grouped controls where the active option is filled with the accent colour: `Any | − | N letters | +`, `Pattern | Rack`, `A–Z | Length`, and a sort direction chip.
+- Font and size settings moved to a quiet footer, with keyboard hints alongside. Clicking the size percentage resets it.
+- Synonyms are clickable chips; clicking one opens its meaning.
+- Words without a dictionary entry fall back to the closest one (for example `flamethrowers` → `flamethrower`), with a "Showing the closest entry" note. Unknown words show "No dictionary entry" instead of raw `dict` output, and the synonym list no longer picks up words from that message.
+- Definitions no longer repeat `dict`'s banner lines or the headword.
+- `←` / `→` switch between the `Meaning` and `Synonyms` tabs; `Ctrl+C` on `Meaning` copies the word shown there. All other shortcuts are unchanged.
+- README: a three-point summary, a screenshot, and a short explained step for installing the word list and dictionaries. The `PKGBUILD` lists the dictionary packages as optional dependencies.
+
 ## v1.0.0
 
 `omarchy-lexicon` v1.0.0 is the first public release of the native Omarchy word-finder and dictionary overlay plugin (`acme.lexicon`), ready for the Omarchy community marketplace (`omarchy plugin add`).

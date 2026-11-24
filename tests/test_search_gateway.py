@@ -168,6 +168,56 @@ From Moby Thesaurus II by Grady Ward, 1.0 [moby-thesaurus]:
         words = search.parse_thesaurus_text(text, "happy")
         self.assertEqual(words, ["bright", "sunny", "glad", "joyful", "beaming"])
 
+    def _fake_dict(self, search, outputs):
+        def run(database, word):
+            return outputs[(database, word)]
+        return patch.object(search, "_run_dict", side_effect=run), patch.object(search.shutil, "which", return_value="/usr/bin/dict")
+
+    def test_missing_definition_follows_closest_entry(self):
+        search = load_search()
+        miss = 'No definitions found for "flamethrowers", perhaps you mean:\nwn:  flamethrower  flamethrowing'
+        hit = '1 definition found\n\nFrom WordNet (r) 3.0 (2006) [wn]:\n\n  flamethrower\n      n 1: a weapon that squirts ignited fuel'
+        runner, which = self._fake_dict(search, {
+            ("wn", "flamethrowers"): (21, "", miss),
+            ("wn", "flamethrower"): (0, hit, hit),
+        })
+        with runner, which:
+            payload = search.lookup_definition("flamethrowers")
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["found"])
+        self.assertEqual(payload["closest"], "flamethrower")
+        self.assertEqual(payload["text"], "n 1: a weapon that squirts ignited fuel")
+
+    def test_unknown_word_has_no_raw_dict_text(self):
+        search = load_search()
+        miss = 'No definitions found for "xqzzv"'
+        runner, which = self._fake_dict(search, {("wn", "xqzzv"): (20, "", miss)})
+        with runner, which:
+            payload = search.lookup_definition("xqzzv")
+        self.assertEqual(payload, {"ok": True, "word": "xqzzv", "text": "", "found": False})
+
+    def test_missing_thesaurus_entry_does_not_leak_message_words(self):
+        search = load_search()
+        miss = 'No definitions found for "flamethrowers", perhaps you mean:\nmoby-thesaurus:  flamethrower'
+        hit = '1 definition found\n\nFrom Moby Thesaurus II by Grady Ward, 1.0 [moby-thesaurus]:\n\n  2 Moby Thesaurus words for "flamethrower":\n     gun, pistol'
+        runner, which = self._fake_dict(search, {
+            ("moby-thesaurus", "flamethrowers"): (21, "", miss),
+            ("moby-thesaurus", "flamethrower"): (0, hit, hit),
+        })
+        with runner, which:
+            payload = search.lookup_thesaurus("flamethrowers")
+        self.assertEqual(payload["results"], ["gun", "pistol"])
+        self.assertEqual(payload["closest"], "flamethrower")
+
+    def test_thesaurus_without_suggestions_is_empty(self):
+        search = load_search()
+        miss = 'No definitions found for "xqzzv"'
+        runner, which = self._fake_dict(search, {("moby-thesaurus", "xqzzv"): (20, "", miss)})
+        with runner, which:
+            payload = search.lookup_thesaurus("xqzzv")
+        self.assertEqual(payload["results"], [])
+        self.assertTrue(payload["ok"])
+
 
 if __name__ == "__main__":
     unittest.main()

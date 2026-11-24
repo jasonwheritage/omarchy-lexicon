@@ -4,12 +4,15 @@
 # Python search engine modules.
 
 pkgname=omarchy-lexicon
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Native Omarchy word-finder and dictionary overlay plugin"
 arch=('any')
 license=('MIT')
 depends=('python' 'wl-clipboard' 'words')
+optdepends=('dictd: local dictionary server for the Meaning and Synonyms tabs'
+            'wordnet-dictd: WordNet definitions (AUR)'
+            'dict-moby-thesaurus: Moby Thesaurus synonyms (AUR)')
 source=("git+https://github.com/jasonwheritage/omarchy-lexicon.git")
 sha256sums=('SKIP')
 

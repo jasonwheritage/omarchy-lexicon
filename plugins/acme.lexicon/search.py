@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from typing import Sequence
 
@@ -163,49 +164,111 @@ def parse_thesaurus_text(text: str, headword: str, limit: int = 200) -> list[str
     return words
 
 
-def lookup_definition(word: str, database: str = "wn") -> dict[str, object]:
-    cleaned = re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
-    if not cleaned:
-        return {"ok": True, "word": "", "text": ""}
-    if shutil.which("dict") is None:
-        return {"ok": False, "error": "Dictionary unavailable", "text": ""}
+_NO_MATCH = "no definitions found"
+_DICT_HEADER = re.compile(r"^\s*(\d+ definitions? found|From .*\[[^\]]+\]:)\s*$", re.IGNORECASE)
+
+
+def _clean_word(word: str) -> str:
+    return re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
+
+
+def _run_dict(database: str, word: str) -> tuple[int, str, str] | None:
     try:
         result = subprocess.run(
-            ["dict", "-h", "localhost", "-d", database or "wn", "--", cleaned],
+            ["dict", "-h", "localhost", "-d", database, "--", word],
             capture_output=True,
             text=True,
             timeout=5,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
+        return None
+    combined = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+    return result.returncode, (result.stdout or ""), combined
+
+
+def closest_suggestion(text: str, headword: str) -> str:
+    """Pick dict's best "perhaps you mean" suggestion, preferring a stem of the headword."""
+    lines = text.splitlines()
+    candidates: list[str] = []
+    collecting = False
+    for line in lines:
+        if _NO_MATCH in line.lower():
+            collecting = True
+            continue
+        if not collecting or ":" not in line:
+            continue
+        for item in re.split(r"\s{2,}", line.split(":", 1)[1].strip()):
+            item = item.strip().strip('"').strip()
+            if item and item.lower() != headword.lower() and item not in candidates:
+                candidates.append(item)
+    if not candidates:
+        return ""
+    head = headword.lower()
+    stems = [c for c in candidates if head.startswith(c.lower())]
+    if stems:
+        return max(stems, key=len)
+    return candidates[0]
+
+
+def clean_definition_text(text: str, headword: str = "") -> str:
+    """Drop dict's count and source banner lines and the echoed headword, keeping the entry body."""
+    kept = [line for line in text.splitlines() if not _DICT_HEADER.match(line)]
+    while kept and not kept[0].strip():
+        kept.pop(0)
+    if kept and headword and kept[0].strip().lower() == headword.lower():
+        kept.pop(0)
+    return textwrap.dedent("\n".join(kept)).strip()
+
+
+def lookup_definition(word: str, database: str = "wn", follow: bool = True) -> dict[str, object]:
+    cleaned = _clean_word(word)
+    if not cleaned:
+        return {"ok": True, "word": "", "text": "", "found": False}
+    if shutil.which("dict") is None:
         return {"ok": False, "error": "Dictionary unavailable", "text": ""}
-    text = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
-    if "cannot connect" in text.lower() or (result.returncode != 0 and not (result.stdout or "").strip()):
+    run = _run_dict(database or "wn", cleaned)
+    if run is None:
+        return {"ok": False, "error": "Dictionary unavailable", "text": ""}
+    code, stdout, text = run
+    lowered = text.lower()
+    if "cannot connect" in lowered:
+        return {"ok": False, "error": "Dictionary unavailable", "text": ""}
+    if _NO_MATCH in lowered:
+        suggestion = closest_suggestion(text, cleaned) if follow else ""
+        if suggestion:
+            nearest = lookup_definition(suggestion, database=database, follow=False)
+            if nearest.get("ok") and nearest.get("found"):
+                return {"ok": True, "word": cleaned, "text": nearest["text"], "found": True, "closest": suggestion}
+        return {"ok": True, "word": cleaned, "text": "", "found": False}
+    if code != 0 and not stdout.strip():
         return {"ok": False, "error": (text or "Dictionary unavailable")[:500], "text": ""}
-    return {"ok": True, "word": cleaned, "text": text[:4000]}
+    body = clean_definition_text(text, cleaned)[:4000]
+    return {"ok": True, "word": cleaned, "text": body, "found": bool(body)}
 
 
-def lookup_thesaurus(word: str, database: str = "moby-thesaurus") -> dict[str, object]:
-    cleaned = re.sub(r"[^A-Za-z '-]", "", word).strip()[:80]
+def lookup_thesaurus(word: str, database: str = "moby-thesaurus", follow: bool = True) -> dict[str, object]:
+    cleaned = _clean_word(word)
     if not cleaned:
         return {"ok": True, "word": "", "results": []}
     if shutil.which("dict") is None:
         return {"ok": False, "error": "Thesaurus unavailable", "results": []}
-    try:
-        result = subprocess.run(
-            ["dict", "-h", "localhost", "-d", database or "moby-thesaurus", "--", cleaned],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+    run = _run_dict(database or "moby-thesaurus", cleaned)
+    if run is None:
         return {"ok": False, "error": "Thesaurus unavailable", "results": []}
-    text = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
-    if "cannot connect" in text.lower():
+    code, _stdout, text = run
+    lowered = text.lower()
+    if "cannot connect" in lowered:
         return {"ok": False, "error": "Thesaurus unavailable", "results": []}
+    if _NO_MATCH in lowered:
+        suggestion = closest_suggestion(text, cleaned) if follow else ""
+        if suggestion:
+            nearest = lookup_thesaurus(suggestion, database=database, follow=False)
+            if nearest.get("ok") and nearest.get("results"):
+                return {"ok": True, "word": cleaned, "results": nearest["results"], "closest": suggestion}
+        return {"ok": True, "word": cleaned, "results": []}
     results = parse_thesaurus_text(text, cleaned)
-    if result.returncode != 0 and not results and "no definitions" not in text.lower():
+    if code != 0 and not results:
         return {"ok": False, "error": "Thesaurus unavailable", "results": []}
     return {"ok": True, "word": cleaned, "results": results}
 

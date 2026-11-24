@@ -37,6 +37,10 @@ Item {
   property string statusMessage: ""
   property string definitionText: ""
   property string thesaurusMessage: ""
+  property bool definitionMissing: false
+  property string definitionClosest: ""
+  property string thesaurusClosest: ""
+  property string detailTab: "def"
   property bool searchRunning: false
   property bool thesaurusRunning: false
   property int searchSerial: 0
@@ -64,12 +68,16 @@ Item {
   property color selectedBackground: Commons.Color.menu.selectedBackground
   property color selectedText: Commons.Color.menu.selectedText
   property color accent: Commons.Color.accent
+  readonly property color surface: Util.alpha(root.foreground, 0.05)
+  readonly property color lineColor: Style.normalBorderFor(root.foreground, root.accent)
+  readonly property color hoverFill: Style.hoverFillFor(root.foreground, root.accent)
+  readonly property color mutedText: Util.alpha(root.foreground, 0.68)
+  readonly property int smallRadius: Math.max(0, Math.min(root.cornerRadius, root.dp(6)))
   readonly property int cornerRadius: Style.cornerRadius
   property string fontId: "theme"
   property real uiScale: 1
   property double scaleTick: 0
   property var fontOptions: ["theme", "Liberation Sans", "Liberation Serif", "Liberation Mono", "iA Writer Quattro S"]
-  property int sizeSlot: root.optionHeight * 2 + Style.space(72)
   readonly property string fontFamily: root.fontId === "theme" || !root.fontId ? Style.font.menuFamily : root.fontId
   readonly property int textCaption: Math.max(1, Math.round(Style.font.caption * root.uiScale))
   readonly property int textBody: Math.max(1, Math.round(Style.font.body * root.uiScale))
@@ -80,7 +88,9 @@ Item {
   property int headerHeight: Math.max(Math.round(Style.space(40) * root.uiScale), root.textTitle + Math.round(Style.spacing.controlPaddingY * 2 * root.uiScale))
   property int hintHeight: root.textCaption + Math.round(Style.space(8) * root.uiScale)
   property int optionHeight: Math.max(Math.round(Style.space(40) * root.uiScale), root.textBody + Math.round(Style.space(16) * root.uiScale))
-  property int contentSpacing: Math.max(1, Math.round(Style.spacing.md * root.uiScale))
+  property int contentSpacing: Math.max(1, Math.round(Style.spacing.xxl * root.uiScale))
+  property int barHeight: Math.max(Math.round(Style.space(34) * root.uiScale), root.textBody + Math.round(Style.space(14) * root.uiScale))
+  property int footerHeight: Math.max(Math.round(Style.space(30) * root.uiScale), root.textCaption + Math.round(Style.space(14) * root.uiScale))
   property int cardWidth: Math.max(1, Math.min(Math.round(Style.space(1080) * root.uiScale), panel.width - Style.gapsOut * 2))
   property int cardHeight: Math.max(1, Math.min(Math.round(Style.space(680) * root.uiScale), panel.height - Style.gapsOut * 2))
   property int rowHeight: Math.max(Math.round(Style.space(36) * root.uiScale), root.textBody + Math.round(Style.spacing.rowPaddingX * root.uiScale))
@@ -367,6 +377,8 @@ Item {
   function showZone(zone) {
     if (root.zones.indexOf(zone) < 0) return
     root.focusZone = zone
+    if (zone === "meaning") root.detailTab = "def"
+    else if (zone === "thesaurus") root.detailTab = "syn"
     if (zone === "thesaurus" && root.thesaurus.length > 0) {
       root.thesaurusActive = true
       root.pendingThesaurus = root.currentThesaurusWord()
@@ -394,13 +406,17 @@ Item {
     root.showZone(root.zones[next])
   }
 
+  function detailZone() {
+    return root.detailTab === "syn" ? "thesaurus" : "meaning"
+  }
+
   function arrowTarget(zone, key) {
     if (key === Qt.Key_Right) {
       if (zone === "pattern") return "length"
       if (zone === "length") return "rack"
       if (zone === "rack") return "letters"
       if (zone === "letters") return "sort"
-      if (zone === "words") return "meaning"
+      if (zone === "words") return root.detailZone()
       if (zone === "meaning") return "thesaurus"
     }
     if (key === Qt.Key_Left) {
@@ -413,14 +429,13 @@ Item {
     }
     if (key === Qt.Key_Down) {
       if (zone === "pattern") return "length"
-      if (zone === "length") return "words"
-      if (zone === "rack" || zone === "letters") return "meaning"
-      if (zone === "sort") return "thesaurus"
+      if (zone === "length" || zone === "rack") return "words"
+      if (zone === "letters" || zone === "sort") return root.detailZone()
     }
     if (key === Qt.Key_Up) {
       if (zone === "length" || zone === "rack" || zone === "letters" || zone === "sort") return "pattern"
       if (zone === "words") return "length"
-      if (zone === "meaning") return "rack"
+      if (zone === "meaning") return "letters"
       if (zone === "thesaurus") return "sort"
     }
     return ""
@@ -497,7 +512,7 @@ Item {
     }
     if (root.focusZone === "meaning" && (event.key === Qt.Key_Up || event.key === Qt.Key_Down)) {
       if (event.key === Qt.Key_Up && meaningFlick.contentY <= 0) {
-        root.showZone("rack")
+        root.showZone("letters")
         event.accepted = true
         return
       }
@@ -548,14 +563,30 @@ Item {
     root.thesaurusActive = true
     root.pendingThesaurus = root.currentThesaurusWord()
     root.fetchDefinition(root.pendingThesaurus)
-    thesaurusList.positionViewAtIndex(root.thesaurusIndex, ListView.Contain)
+    root.revealThesaurus(root.thesaurusIndex)
+  }
+
+  function revealThesaurus(index) {
+    var chip = thesaurusChips.itemAt(index)
+    if (!chip) return
+    var limit = Math.max(0, thesaurusList.contentHeight - thesaurusList.height)
+    var y = thesaurusList.contentY
+    if (chip.y < y) y = chip.y
+    else if (chip.y + chip.height > y + thesaurusList.height) y = chip.y + chip.height - thesaurusList.height
+    thesaurusList.contentY = Math.max(0, Math.min(y, limit))
+  }
+
+  function activeWord() {
+    if (root.thesaurusActive && root.currentThesaurusWord()) return root.currentThesaurusWord()
+    return root.selectedWord()
   }
 
   function copyFocused(closeAfter) {
     var text = ""
     if (root.focusZone === "thesaurus") text = root.currentThesaurusWord()
     else if (root.focusZone === "pattern" && !closeAfter) text = root.filterText
-    else if (root.focusZone === "words" || root.focusZone === "meaning") text = root.selectedWord()
+    else if (root.focusZone === "words") text = root.selectedWord()
+    else if (root.focusZone === "meaning") text = root.activeWord()
     else text = root.selectedWord() || root.filterText
     if (!text) return
     Quickshell.execDetached(["wl-copy", text])
@@ -625,8 +656,11 @@ Item {
     root.matches = []
     root.selectedIndex = 0
     root.definitionText = ""
+    root.definitionMissing = false
+    root.definitionClosest = ""
     root.thesaurus = []
     root.thesaurusMessage = ""
+    root.thesaurusClosest = ""
     root.thesaurusRunning = false
     root.statusMessage = ""
   }
@@ -669,6 +703,8 @@ Item {
   }
 
   function fetchDefinition(word) {
+    root.definitionMissing = false
+    root.definitionClosest = ""
     if (!word) {
       root.definitionText = ""
       return
@@ -691,7 +727,9 @@ Item {
       root.definitionText = String(payload.error || strings.t("meaning.unavailable")).slice(0, 500)
       return
     }
-    root.definitionText = String(payload.text || strings.t("meaning.empty")).trim().slice(0, 4000)
+    root.definitionClosest = String(payload.closest || "").slice(0, 80)
+    root.definitionMissing = payload.found === false
+    root.definitionText = root.definitionMissing ? "" : String(payload.text || "").trim().slice(0, 4000)
     meaningFlick.contentY = 0
   }
 
@@ -705,6 +743,7 @@ Item {
     var serial = root.thesaurusSerial
     root.thesaurusRunning = true
     root.thesaurusMessage = ""
+    root.thesaurusClosest = ""
     if (thesaurusProc.running) thesaurusProc.running = false
     root.attachStream(thesaurusOut, "thesaurus", serial, root.applyThesaurus)
     thesaurusProc.command = ["python3", root.searchScript, "--thesaurus", word]
@@ -722,15 +761,14 @@ Item {
       return
     }
     root.thesaurus = payload.results || []
+    root.thesaurusClosest = String(payload.closest || "").slice(0, 80)
     root.thesaurusMessage = root.thesaurus.length === 0 ? strings.t("thesaurus.empty") : ""
     var found = root.findIndex(root.thesaurus, root.pendingThesaurus)
     root.thesaurusIndex = found >= 0 ? found : 0
     if (found >= 0) root.fetchDefinition(root.pendingThesaurus)
     if (root.thesaurus.length > 0) {
-      Qt.callLater(function() {
-        if (thesaurusList.count > root.thesaurusIndex)
-          thesaurusList.positionViewAtIndex(root.thesaurusIndex, ListView.Contain)
-      })
+      thesaurusList.contentY = 0
+      Qt.callLater(function() { root.revealThesaurus(root.thesaurusIndex) })
     }
   }
 
@@ -745,13 +783,13 @@ Item {
     root.fetchThesaurus(root.pendingWord)
   }
 
-  function chooseThesaurus(index) {
+  function chooseThesaurus(index, openMeaning) {
     if (index < 0 || index >= root.thesaurus.length) return
     root.thesaurusIndex = index
     root.thesaurusActive = true
     root.pendingThesaurus = root.currentThesaurusWord()
-    root.showZone("thesaurus")
-    root.fetchDefinition(root.pendingThesaurus)
+    root.showZone(openMeaning ? "meaning" : "thesaurus")
+    if (openMeaning) root.fetchDefinition(root.pendingThesaurus)
   }
 
   Process {
@@ -816,36 +854,116 @@ Item {
     onActivated: root.dismiss()
   }
 
-  component ClickSurface: Item {
-    id: chip
 
-    default property alias content: content.data
-    property alias color: surface.color
-    property alias borderSpec: surface.borderSpec
-    property alias radius: surface.radius
+  // Invisible keyboard focus target for a control-bar zone.
+  component FocusSink: Item {
+    width: 0
+    height: 0
+    activeFocusOnTab: true
+    Keys.onPressed: function(event) { root.handleNavKey(event) }
+  }
+
+  // One button inside a segmented group; `on` is the pressed (solid accent) state.
+  component SegButton: Rectangle {
+    id: segButton
+    property string label: ""
+    property bool on: false
+    property bool first: false
+    property string family: root.fontFamily
+    property int pixelSize: root.textBody
+    property int minWidth: 0
     signal activated()
 
-    BorderSurface {
-      id: surface
-      anchors.fill: parent
-      enabled: false
+    width: Math.max(segButton.minWidth, segLabel.implicitWidth + root.dp(Style.space(22)))
+    height: parent ? parent.height : root.barHeight
+    color: segButton.on ? root.accent : (segMouse.containsMouse ? root.hoverFill : "transparent")
+
+    Rectangle {
+      visible: !segButton.first
+      width: 1
+      height: parent.height
+      color: root.lineColor
     }
 
-    Item {
-      id: content
-      z: 1
-      anchors.fill: parent
+    Text {
+      id: segLabel
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: segButton.label
+      color: segButton.on ? root.background : root.foreground
+      font.family: segButton.family
+      font.pixelSize: segButton.pixelSize
+      font.bold: segButton.on
     }
 
     MouseArea {
-      z: 10
+      id: segMouse
       anchors.fill: parent
-      preventStealing: true
       hoverEnabled: true
+      preventStealing: true
       cursorShape: Qt.PointingHandCursor
       onPressed: function(mouse) {
         mouse.accepted = true
-        chip.activated()
+        segButton.activated()
+      }
+    }
+  }
+
+  // Bordered strip holding SegButtons; the border turns accent when its zone has focus.
+  component SegGroup: Rectangle {
+    id: group
+    default property alias buttons: segRow.data
+    property bool focused: false
+
+    width: segRow.implicitWidth + group.border.width * 2
+    radius: root.smallRadius
+    color: "transparent"
+    clip: true
+    border.width: group.focused ? Math.max(2, root.dp(2)) : 1
+    border.color: group.focused ? root.accent : root.lineColor
+
+    Row {
+      id: segRow
+      x: group.border.width
+      y: group.border.width
+      height: group.height - group.border.width * 2
+    }
+  }
+
+  // Meaning / Synonyms tab in the detail card.
+  component TabButton: Rectangle {
+    id: tab
+    property string label: ""
+    property bool selected: false
+    signal activated()
+
+    width: tabLabel.implicitWidth + root.dp(Style.space(24))
+    height: parent ? parent.height : root.barHeight
+    radius: root.smallRadius
+    color: tabMouse.containsMouse && !tab.selected ? root.hoverFill : "transparent"
+    border.width: 1
+    border.color: tab.selected ? root.accent : root.lineColor
+
+    Text {
+      id: tabLabel
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: tab.label
+      color: tab.selected ? root.accent : root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: root.textBody
+      font.bold: tab.selected
+    }
+
+    MouseArea {
+      id: tabMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      preventStealing: true
+      cursorShape: Qt.PointingHandCursor
+      onPressed: function(mouse) {
+        mouse.accepted = true
+        tab.activated()
       }
     }
   }
@@ -910,6 +1028,7 @@ Item {
         Keys.onPressed: function(event) { root.handleNavKey(event) }
 
         Column {
+          id: layout
           anchors.fill: parent
           anchors.topMargin: card.contentTopInset
           anchors.rightMargin: card.contentRightInset
@@ -917,23 +1036,25 @@ Item {
           anchors.leftMargin: card.contentLeftInset
           spacing: root.contentSpacing
 
-          Row {
+          // ── Search input + match count pill ──────────────────────────
+          Item {
             width: parent.width
             height: root.headerHeight
-            spacing: Style.space(12)
 
             BorderSurface {
-              anchors.verticalCenter: parent.verticalCenter
-              width: parent.width - statusLabel.width - parent.spacing
+              anchors.left: parent.left
+              anchors.right: countPill.visible ? countPill.left : parent.right
+              anchors.rightMargin: countPill.visible ? root.dp(Style.space(12)) : 0
               height: parent.height
-              radius: root.cornerRadius
-              color: Style.controlFill(root.focusZone === "pattern", false, root.foreground, root.accent)
+              radius: root.smallRadius
+              color: root.surface
               borderSpec: Border.controlSpec(root.focusZone === "pattern" ? "focus" : "normal", root.foreground, root.accent)
 
               TextInput {
                 id: filterInput
                 anchors.fill: parent
-                anchors.margins: Style.space(8)
+                anchors.leftMargin: root.dp(Style.space(14))
+                anchors.rightMargin: root.dp(Style.space(14))
                 focus: true
                 clip: true
                 selectByMouse: true
@@ -988,523 +1109,577 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 visible: !root.filterText && !filterInput.preeditText
                 text: strings.t("search.hint")
-                color: root.foreground
-                opacity: 0.58
+                color: root.mutedText
                 font.family: root.fontFamily
                 font.pixelSize: root.textHeading
                 elide: Text.ElideRight
               }
             }
 
-            Text {
-              id: statusLabel
-              textFormat: Text.PlainText
+            Rectangle {
+              id: countPill
+              anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              width: Math.min(Style.space(220), parent.width * 0.28)
-              horizontalAlignment: Text.AlignRight
-              text: root.searchRunning ? strings.t("search.running") : root.statusMessage
-              color: root.foreground
-              opacity: 0.7
-              font.family: root.fontFamily
-              font.pixelSize: root.textCaption
-              elide: Text.ElideRight
-            }
-          }
-
-          Text {
-            width: parent.width
-            height: root.hintHeight
-            textFormat: Text.PlainText
-            text: strings.t("hint.line")
-            color: root.foreground
-            opacity: 0.62
-            font.family: root.fontFamily
-            font.pixelSize: root.textCaption
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
-          }
-
-          Row {
-            z: 10
-            width: parent.width
-            height: root.optionHeight
-            spacing: root.dp(Style.space(8))
-
-            ClickSurface {
-              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
-              height: parent.height
-              radius: root.cornerRadius
-              color: Style.controlFill(root.focusZone === "length", false, root.foreground, root.accent)
-              borderSpec: Border.controlSpec(root.focusZone === "length" ? "focus" : "normal", root.foreground, root.accent)
-              onActivated: root.showZone("length")
-
-              Item {
-                id: lengthFocus
-                anchors.fill: parent
-                activeFocusOnTab: true
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
-              }
-
-              Row {
-                anchors.centerIn: parent
-                spacing: Style.space(8)
-                Text {
-                  textFormat: Text.PlainText
-                  text: strings.t("option.length")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                }
-                Text {
-                  textFormat: Text.PlainText
-                  text: root.lengthValue > 0 ? String(root.lengthValue) : strings.t("option.any")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  font.bold: true
-                }
-              }
-            }
-
-            ClickSurface {
-              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
-              height: parent.height
-              radius: root.cornerRadius
-              color: Style.controlFill(root.focusZone === "rack", false, root.foreground, root.accent)
-              borderSpec: Border.controlSpec(root.focusZone === "rack" ? "focus" : "normal", root.foreground, root.accent)
-              onActivated: {
-                root.showZone("rack")
-                root.setRack(!root.rackOn)
-              }
-
-              Item {
-                id: rackFocus
-                anchors.fill: parent
-                activeFocusOnTab: true
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
-              }
-
-              Row {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(10)
-                spacing: Style.space(8)
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: strings.t("option.rack")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                }
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: root.rackOn ? strings.t("option.on") : strings.t("option.off")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  font.bold: root.rackOn
-                }
-                ToggleSwitch {
-                  checked: root.rackOn
-                  interactive: false
-                  hasCursor: root.focusZone === "rack"
-                }
-              }
-            }
-
-            ClickSurface {
-              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
-              height: parent.height
-              radius: root.cornerRadius
-              color: Style.controlFill(root.focusZone === "letters", false, root.foreground, root.accent)
-              borderSpec: Border.controlSpec(root.focusZone === "letters" ? "focus" : "normal", root.foreground, root.accent)
-              onActivated: {
-                root.showZone("letters")
-                root.setByLetters(!root.byLetters)
-              }
-
-              Item {
-                id: lettersFocus
-                anchors.fill: parent
-                activeFocusOnTab: true
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
-              }
-
-              Row {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(10)
-                spacing: Style.space(8)
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: strings.t("option.letters")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                }
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: root.byLetters ? strings.t("option.on") : strings.t("option.off")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  font.bold: root.byLetters
-                }
-                ToggleSwitch {
-                  checked: root.byLetters
-                  interactive: false
-                  hasCursor: root.focusZone === "letters"
-                }
-              }
-            }
-
-            ClickSurface {
-              width: (parent.width - parent.spacing * 4 - root.sizeSlot) / 4
-              height: parent.height
-              radius: root.cornerRadius
-              color: Style.controlFill(root.focusZone === "sort", false, root.foreground, root.accent)
-              borderSpec: Border.controlSpec(root.focusZone === "sort" ? "focus" : "normal", root.foreground, root.accent)
-              onActivated: {
-                root.showZone("sort")
-                root.setDescending(!root.descending)
-              }
-
-              Item {
-                id: sortFocus
-                anchors.fill: parent
-                activeFocusOnTab: true
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
-              }
-
-              Row {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(10)
-                spacing: Style.space(8)
-                Text {
-                  textFormat: Text.PlainText
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: root.descending ? strings.t("option.descending") : strings.t("option.ascending")
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                }
-                ToggleSwitch {
-                  checked: root.descending
-                  interactive: false
-                  hasCursor: root.focusZone === "sort"
-                }
-              }
-            }
-
-            Row {
-              width: root.sizeSlot
-              height: parent.height
-              spacing: Style.space(6)
-
-              ClickSurface {
-                width: parent.height
-                height: parent.height
-                radius: root.cornerRadius
-                color: Style.controlFill(false, false, root.foreground, root.accent)
-                borderSpec: Border.controlSpec("normal", root.foreground, root.accent)
-                onActivated: root.stepScale(-1)
-                Text {
-                  anchors.centerIn: parent
-                  text: "−"
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textTitle
-                  font.bold: true
-                }
-              }
+              visible: countText.text.length > 0
+              height: root.barHeight
+              width: Math.min(countText.implicitWidth + root.dp(Style.space(32)), parent.width * 0.34)
+              radius: height / 2
+              color: root.surface
+              border.width: 1
+              border.color: root.lineColor
 
               Text {
-                width: parent.width - parent.height * 2 - parent.spacing * 2
-                height: parent.height
+                id: countText
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, parent.width - root.dp(Style.space(24)))
                 textFormat: Text.PlainText
-                text: Math.round(root.uiScale * 100) + "%"
-                color: root.foreground
                 horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
+                text: root.searchRunning ? strings.t("search.running") : root.statusMessage
+                color: root.accent
                 font.family: root.fontFamily
                 font.pixelSize: root.textBody
                 font.bold: true
-              }
-
-              ClickSurface {
-                width: parent.height
-                height: parent.height
-                radius: root.cornerRadius
-                color: Style.controlFill(false, false, root.foreground, root.accent)
-                borderSpec: Border.controlSpec("normal", root.foreground, root.accent)
-                onActivated: root.stepScale(1)
-                Text {
-                  anchors.centerIn: parent
-                  text: "+"
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textTitle
-                  font.bold: true
-                }
+                elide: Text.ElideRight
               }
             }
           }
 
-          Row {
-            id: fontRow
+          // ── Control bar: length · pattern/rack · sort key · direction · hint ─
+          Item {
             z: 10
             width: parent.width
-            height: root.optionHeight
-            spacing: root.dp(Style.space(8))
+            height: root.barHeight
 
-            Repeater {
-              model: root.fontOptions
-              delegate: Item {
-                required property int index
-                required property string modelData
-                width: (fontRow.width - fontRow.spacing * 4) / 5
-                height: fontRow.height
+            Row {
+              id: controls
+              height: parent.height
+              spacing: root.dp(Style.space(10))
 
-                ClickSurface {
-                  anchors.fill: parent
-                  radius: root.cornerRadius
-                  color: Style.controlFill(modelData === root.fontId, false, root.foreground, root.accent)
-                  borderSpec: Border.controlSpec(modelData === root.fontId ? "focus" : "normal", root.foreground, root.accent)
-                  onActivated: root.chooseFont(modelData)
+              SegGroup {
+                height: parent.height
+                focused: root.focusZone === "length"
 
-                  Text {
-                    anchors.centerIn: parent
-                    width: parent.width - Style.space(8)
-                    textFormat: Text.PlainText
-                    text: root.fontChoiceLabel(modelData)
-                    color: root.foreground
-                    horizontalAlignment: Text.AlignHCenter
-                    font.family: root.fontChoiceFamily(modelData)
-                    font.pixelSize: root.textTitle
-                    font.bold: modelData === root.fontId
-                    elide: Text.ElideRight
+                FocusSink { id: lengthFocus }
+                SegButton {
+                  first: true
+                  label: strings.t("option.any")
+                  on: root.lengthValue === 0
+                  onActivated: {
+                    root.showZone("length")
+                    root.setLength(0)
+                  }
+                }
+                SegButton {
+                  label: "−"
+                  minWidth: parent.height
+                  onActivated: {
+                    root.showZone("length")
+                    if (root.lengthValue > 0) root.setLength(root.lengthValue - 1)
+                  }
+                }
+                SegButton {
+                  label: root.lengthValue > 0
+                    ? strings.tn("word.letters", root.lengthValue).arg(root.lengthValue)
+                    : strings.t("option.length")
+                  on: root.lengthValue > 0
+                  onActivated: root.showZone("length")
+                }
+                SegButton {
+                  label: "+"
+                  minWidth: parent.height
+                  onActivated: {
+                    root.showZone("length")
+                    root.setLength(root.lengthValue > 0 ? root.lengthValue + 1 : 3)
                   }
                 }
               }
+
+              SegGroup {
+                height: parent.height
+                focused: root.focusZone === "rack"
+
+                FocusSink { id: rackFocus }
+                SegButton {
+                  first: true
+                  label: strings.t("option.mode.pattern")
+                  on: !root.rackOn
+                  onActivated: {
+                    root.showZone("rack")
+                    if (root.rackOn) root.setRack(false)
+                  }
+                }
+                SegButton {
+                  label: strings.t("option.mode.rack")
+                  on: root.rackOn
+                  onActivated: {
+                    root.showZone("rack")
+                    if (!root.rackOn) root.setRack(true)
+                  }
+                }
+              }
+
+              SegGroup {
+                height: parent.height
+                focused: root.focusZone === "letters"
+
+                FocusSink { id: lettersFocus }
+                SegButton {
+                  first: true
+                  label: strings.t("option.sortby.alpha")
+                  on: !root.byLetters
+                  onActivated: {
+                    root.showZone("letters")
+                    if (root.byLetters) root.setByLetters(false)
+                  }
+                }
+                SegButton {
+                  label: strings.t("option.sortby.length")
+                  on: root.byLetters
+                  onActivated: {
+                    root.showZone("letters")
+                    if (!root.byLetters) root.setByLetters(true)
+                  }
+                }
+              }
+
+              SegGroup {
+                height: parent.height
+                focused: root.focusZone === "sort"
+
+                FocusSink { id: sortFocus }
+                SegButton {
+                  first: true
+                  label: root.byLetters
+                    ? (root.descending ? strings.t("sort.length.desc") : strings.t("sort.length.asc"))
+                    : (root.descending ? strings.t("sort.alpha.desc") : strings.t("sort.alpha.asc"))
+                  onActivated: {
+                    root.showZone("sort")
+                    root.setDescending(!root.descending)
+                  }
+                }
+              }
+            }
+
+            Text {
+              anchors.left: controls.right
+              anchors.leftMargin: root.dp(Style.space(14))
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
+              horizontalAlignment: Text.AlignRight
+              text: strings.t("hint.wildcards")
+              color: root.mutedText
+              font.family: root.fontFamily
+              font.pixelSize: root.textBody
+              elide: Text.ElideLeft
             }
           }
 
-          Row {
+          // ── Split view: word list | detail card ──────────────────────
+          Item {
+            id: split
             z: 0
-            clip: true
             width: parent.width
-            height: Math.max(0, parent.height - root.headerHeight - root.hintHeight - root.optionHeight * 2 - root.contentSpacing * 4)
-            spacing: Style.space(12)
+            height: Math.max(0, parent.height - root.headerHeight - root.barHeight - root.footerHeight - root.contentSpacing * 3)
+            readonly property int gap: root.dp(Style.space(14))
 
-            Column {
-              width: (parent.width - parent.spacing * 2) / 3
+            ListView {
+              id: resultList
+              width: Math.round((split.width - split.gap) * 5 / 11)
               height: parent.height
-              spacing: Style.space(4)
+              model: root.matches
+              clip: true
+              spacing: root.dp(2)
+              boundsBehavior: Flickable.StopAtBounds
+              activeFocusOnTab: true
+              keyNavigationEnabled: false
+              Keys.priority: Keys.BeforeItem
+              Keys.onPressed: function(event) { root.handleNavKey(event) }
 
-              Text {
-                width: parent.width
-                textFormat: Text.PlainText
-                text: strings.t("column.words")
-                color: root.foreground
-                opacity: root.focusZone === "words" ? 1 : 0.6
-                font.family: root.fontFamily
-                font.pixelSize: root.textCaption
-                font.bold: root.focusZone === "words"
-              }
+              delegate: Item {
+                id: wordRow
+                required property int index
+                required property string modelData
+                readonly property bool chosen: index === root.selectedIndex
+                width: ListView.view.width
+                height: root.rowHeight
 
-              ListView {
-                id: resultList
-                width: parent.width
-                height: parent.height - root.textCaption - parent.spacing
-                model: root.matches
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                activeFocusOnTab: true
-                keyNavigationEnabled: false
-                Keys.priority: Keys.BeforeItem
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
+                Rectangle {
+                  anchors.fill: parent
+                  radius: root.smallRadius
+                  color: wordRow.chosen ? Util.alpha(root.accent, 0.12) : (rowMouse.containsMouse ? root.hoverFill : "transparent")
+                  border.width: wordRow.chosen ? (root.focusZone === "words" ? Math.max(2, root.dp(2)) : 1) : 0
+                  border.color: root.accent
+                }
 
-                delegate: Rectangle {
-                  required property int index
-                  required property string modelData
-                  readonly property bool chosen: index === root.selectedIndex
-                  width: ListView.view.width
-                  height: root.rowHeight
-                  radius: root.cornerRadius
-                  color: chosen ? root.selectedBackground : "transparent"
-
-                  Text {
-                    textFormat: Text.PlainText
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: Style.space(10)
-                    width: parent.width - Style.space(20)
-                    text: parent.modelData
-                    color: parent.chosen ? root.selectedText : root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: root.textTitle
-                    elide: Text.ElideRight
-                  }
-
-                  MouseArea {
-                    z: 10
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    preventStealing: true
-                    onPressed: function(mouse) {
-                      mouse.accepted = true
-                      root.chooseWord(index)
-                    }
-                  }
+                Rectangle {
+                  visible: wordRow.chosen
+                  width: Math.max(3, root.dp(4))
+                  height: parent.height
+                  radius: root.smallRadius
+                  color: root.accent
                 }
 
                 Text {
-                  anchors.centerIn: parent
-                  width: parent.width
-                  visible: root.matches.length === 0 && !root.searchRunning && root.filterText.length > 0
                   textFormat: Text.PlainText
-                  text: strings.t("results.none").arg(root.filterText)
-                  color: root.foreground
-                  opacity: 0.6
+                  anchors.verticalCenter: parent.verticalCenter
+                  anchors.left: parent.left
+                  anchors.leftMargin: root.dp(Style.space(16))
+                  anchors.right: lengthTag.left
+                  anchors.rightMargin: root.dp(Style.space(8))
+                  text: wordRow.modelData
+                  color: wordRow.chosen ? root.accent : root.foreground
                   font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  horizontalAlignment: Text.AlignHCenter
-                  wrapMode: Text.WordWrap
+                  font.pixelSize: root.textTitle
+                  font.bold: wordRow.chosen
+                  elide: Text.ElideRight
                 }
-              }
-            }
-
-            Column {
-              width: (parent.width - parent.spacing * 2) / 3
-              height: parent.height
-              spacing: Style.space(4)
-
-              Text {
-                width: parent.width
-                textFormat: Text.PlainText
-                text: strings.t("column.meaning")
-                color: root.foreground
-                opacity: root.focusZone === "meaning" ? 1 : 0.6
-                font.family: root.fontFamily
-                font.pixelSize: root.textCaption
-                font.bold: root.focusZone === "meaning"
-              }
-
-              Flickable {
-                id: meaningFlick
-                width: parent.width
-                height: parent.height - root.textCaption - parent.spacing
-                contentWidth: width
-                contentHeight: meaningText.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                activeFocusOnTab: true
-                Keys.priority: Keys.BeforeItem
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
 
                 Text {
-                  id: meaningText
-                  z: 1
-                  width: meaningFlick.width
+                  id: lengthTag
                   textFormat: Text.PlainText
-                  text: root.definitionText || strings.t("meaning.empty")
-                  color: root.foreground
-                  opacity: root.definitionText ? 0.9 : 0.55
+                  anchors.verticalCenter: parent.verticalCenter
+                  anchors.right: parent.right
+                  anchors.rightMargin: root.dp(Style.space(12))
+                  text: String(wordRow.modelData.length)
+                  color: root.mutedText
                   font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  wrapMode: Text.WordWrap
+                  font.pixelSize: root.textCaption
                 }
 
                 MouseArea {
-                  z: -1
+                  id: rowMouse
+                  z: 10
                   anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  preventStealing: true
                   onPressed: function(mouse) {
                     mouse.accepted = true
-                    root.showZone("meaning")
+                    root.chooseWord(wordRow.index)
+                  }
+                }
+              }
+
+              Text {
+                anchors.centerIn: parent
+                width: parent.width - root.dp(Style.space(24))
+                visible: root.matches.length === 0 && !root.searchRunning && root.filterText.length > 0
+                textFormat: Text.PlainText
+                text: strings.t("results.empty")
+                color: root.mutedText
+                font.family: root.fontFamily
+                font.pixelSize: root.textBody
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+              }
+            }
+
+            BorderSurface {
+              id: detailCard
+              x: resultList.width + split.gap
+              width: split.width - x
+              height: parent.height
+              radius: root.smallRadius
+              color: root.surface
+              borderSpec: Border.controlSpec(root.focusZone === "meaning" || root.focusZone === "thesaurus" ? "focus" : "normal", root.foreground, root.accent)
+              padding: root.dp(Style.space(16))
+
+              Item {
+                id: detailBody
+                anchors.fill: parent
+                anchors.topMargin: detailCard.contentTopInset
+                anchors.rightMargin: detailCard.contentRightInset
+                anchors.bottomMargin: detailCard.contentBottomInset
+                anchors.leftMargin: detailCard.contentLeftInset
+
+                Row {
+                  id: detailTabs
+                  height: root.barHeight
+                  spacing: root.dp(Style.space(6))
+
+                  TabButton {
+                    label: strings.t("tab.meaning")
+                    selected: root.detailTab === "def"
+                    onActivated: root.showZone("meaning")
+                  }
+                  TabButton {
+                    label: strings.t("tab.synonyms")
+                    selected: root.detailTab === "syn"
+                    onActivated: root.showZone("thesaurus")
+                  }
+                }
+
+                Column {
+                  id: detailHead
+                  anchors.top: detailTabs.bottom
+                  anchors.topMargin: root.dp(Style.space(14))
+                  width: parent.width
+                  spacing: root.dp(Style.space(4))
+                  visible: root.activeWord().length > 0
+
+                  Text {
+                    width: parent.width
+                    textFormat: Text.PlainText
+                    text: root.activeWord()
+                    color: root.accent
+                    font.family: root.fontFamily
+                    font.pixelSize: Math.round(root.textHeading * 1.25)
+                    font.bold: true
+                    wrapMode: Text.WrapAnywhere
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    width: parent.width
+                    textFormat: Text.PlainText
+                    text: {
+                      var word = root.activeWord()
+                      var parts = [strings.tn("word.letters", word.length).arg(word.length)]
+                      if (root.thesaurusActive && root.currentThesaurusWord())
+                        parts.push(strings.t("detail.synonymOf").arg(root.selectedWord()))
+                      return parts.join("  ·  ")
+                    }
+                    color: root.mutedText
+                    font.family: root.fontFamily
+                    font.pixelSize: root.textCaption
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    width: parent.width
+                    textFormat: Text.PlainText
+                    readonly property string closest: root.detailTab === "syn" ? root.thesaurusClosest : root.definitionClosest
+                    visible: closest.length > 0
+                    text: strings.t("detail.closest").arg(closest)
+                    color: root.mutedText
+                    font.family: root.fontFamily
+                    font.pixelSize: root.textCaption
+                    font.italic: true
+                    elide: Text.ElideRight
+                  }
+                }
+
+                Item {
+                  id: detailContent
+                  anchors.top: detailHead.visible ? detailHead.bottom : detailTabs.bottom
+                  anchors.topMargin: root.dp(Style.space(12))
+                  anchors.bottom: parent.bottom
+                  width: parent.width
+
+                  Flickable {
+                    id: meaningFlick
+                    anchors.fill: parent
+                    visible: root.detailTab === "def"
+                    contentWidth: width
+                    contentHeight: meaningText.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    activeFocusOnTab: true
+                    Keys.priority: Keys.BeforeItem
+                    Keys.onPressed: function(event) { root.handleNavKey(event) }
+
+                    Text {
+                      id: meaningText
+                      z: 1
+                      width: meaningFlick.width
+                      textFormat: Text.PlainText
+                      readonly property bool hasBody: root.definitionText.length > 0 && !root.definitionMissing
+                      text: {
+                        if (root.definitionMissing) return strings.t("meaning.missing").arg(root.activeWord())
+                        if (root.definitionText) return root.definitionText
+                        return strings.t("meaning.empty")
+                      }
+                      color: hasBody ? root.foreground : root.mutedText
+                      font.family: root.fontFamily
+                      font.pixelSize: root.textBody
+                      lineHeight: 1.2
+                      wrapMode: Text.WordWrap
+                    }
+
+                    MouseArea {
+                      z: -1
+                      anchors.fill: parent
+                      onPressed: function(mouse) {
+                        mouse.accepted = true
+                        root.showZone("meaning")
+                      }
+                    }
+                  }
+
+                  Flickable {
+                    id: thesaurusList
+                    anchors.fill: parent
+                    visible: root.detailTab === "syn"
+                    contentWidth: width
+                    contentHeight: chipFlow.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    activeFocusOnTab: true
+                    Keys.priority: Keys.BeforeItem
+                    Keys.onPressed: function(event) { root.handleNavKey(event) }
+
+                    Flow {
+                      id: chipFlow
+                      width: thesaurusList.width
+                      spacing: root.dp(Style.space(6))
+
+                      Repeater {
+                        id: thesaurusChips
+                        model: root.thesaurus
+
+                        delegate: Rectangle {
+                          id: chip
+                          required property int index
+                          required property string modelData
+                          readonly property bool chosen: index === root.thesaurusIndex && root.thesaurusActive
+                          width: Math.min(chipFlow.width, chipLabel.implicitWidth + root.dp(Style.space(20)))
+                          height: Math.round(root.rowHeight * 0.85)
+                          radius: root.smallRadius
+                          color: chip.chosen ? root.accent : (chipMouse.containsMouse ? root.hoverFill : root.background)
+                          border.width: 1
+                          border.color: chip.chosen ? root.accent : root.lineColor
+
+                          Text {
+                            id: chipLabel
+                            anchors.centerIn: parent
+                            width: Math.min(implicitWidth, chipFlow.width - root.dp(Style.space(20)))
+                            textFormat: Text.PlainText
+                            text: chip.modelData
+                            color: chip.chosen ? root.background : root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: root.textBody
+                            font.bold: chip.chosen
+                            elide: Text.ElideRight
+                          }
+
+                          MouseArea {
+                            id: chipMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            preventStealing: true
+                            onPressed: function(mouse) {
+                              mouse.accepted = true
+                              root.chooseThesaurus(chip.index, true)
+                            }
+                          }
+                        }
+                      }
+                    }
+
+                    Text {
+                      anchors.top: parent.top
+                      width: parent.width
+                      visible: root.thesaurus.length === 0
+                      textFormat: Text.PlainText
+                      text: root.thesaurusRunning
+                        ? strings.t("meaning.looking")
+                        : (root.thesaurusMessage || (root.selectedWord() ? "" : strings.t("meaning.empty")))
+                      color: root.mutedText
+                      font.family: root.fontFamily
+                      font.pixelSize: root.textBody
+                      wrapMode: Text.WordWrap
+                    }
+
+                    MouseArea {
+                      z: -1
+                      anchors.fill: parent
+                      onPressed: function(mouse) {
+                        mouse.accepted = true
+                        root.showZone("thesaurus")
+                      }
+                    }
                   }
                 }
               }
             }
+          }
 
-            Column {
-              width: (parent.width - parent.spacing * 2) / 3
-              height: parent.height
-              spacing: Style.space(4)
+          // ── Footer: font · size · key hints ──────────────────────────
+          Item {
+            z: 10
+            width: parent.width
+            height: root.footerHeight
+
+            Rectangle {
+              y: -Math.round(root.contentSpacing / 2)
+              width: parent.width
+              height: 1
+              color: root.lineColor
+            }
+
+            Row {
+              id: footerRow
+              anchors.verticalCenter: parent.verticalCenter
+              height: parent.height - root.dp(Style.space(4))
+              spacing: root.dp(Style.space(10))
 
               Text {
-                width: parent.width
+                anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
-                text: strings.t("column.thesaurus")
-                color: root.foreground
-                opacity: root.focusZone === "thesaurus" ? 1 : 0.6
+                text: strings.t("option.font").toUpperCase()
+                color: root.mutedText
                 font.family: root.fontFamily
                 font.pixelSize: root.textCaption
-                font.bold: root.focusZone === "thesaurus"
+                font.letterSpacing: root.textCaption * 0.08
               }
 
-              ListView {
-                id: thesaurusList
-                width: parent.width
-                height: parent.height - root.textCaption - parent.spacing
-                model: root.thesaurus
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                activeFocusOnTab: true
-                keyNavigationEnabled: false
-                Keys.priority: Keys.BeforeItem
-                Keys.onPressed: function(event) { root.handleNavKey(event) }
+              SegGroup {
+                height: parent.height
 
-                delegate: Rectangle {
-                  required property int index
-                  required property string modelData
-                  readonly property bool chosen: index === root.thesaurusIndex && root.thesaurus.length > 0
-                  width: ListView.view.width
-                  height: root.rowHeight
-                  radius: root.cornerRadius
-                  color: chosen && root.thesaurusActive ? root.selectedBackground : "transparent"
-
-                  Text {
-                    textFormat: Text.PlainText
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: Style.space(10)
-                    width: parent.width - Style.space(20)
-                    text: parent.modelData
-                    color: parent.chosen && root.thesaurusActive ? root.selectedText : root.foreground
-                    font.family: root.fontFamily
-                    font.pixelSize: root.textBody
-                    elide: Text.ElideRight
+                Repeater {
+                  model: root.fontOptions
+                  delegate: SegButton {
+                    required property int index
+                    required property string modelData
+                    first: index === 0
+                    label: root.fontChoiceLabel(modelData)
+                    family: root.fontChoiceFamily(modelData)
+                    pixelSize: root.textCaption
+                    on: modelData === root.fontId
+                    onActivated: root.chooseFont(modelData)
                   }
-
-                  MouseArea {
-                    z: 10
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    preventStealing: true
-                    onPressed: function(mouse) {
-                      mouse.accepted = true
-                      root.chooseThesaurus(index)
-                    }
-                  }
-                }
-
-                Text {
-                  anchors.centerIn: parent
-                  width: parent.width - Style.space(12)
-                  visible: root.thesaurusMessage.length > 0 && root.thesaurus.length === 0
-                  textFormat: Text.PlainText
-                  text: root.thesaurusMessage
-                  color: root.foreground
-                  opacity: 0.6
-                  font.family: root.fontFamily
-                  font.pixelSize: root.textBody
-                  horizontalAlignment: Text.AlignHCenter
-                  wrapMode: Text.WordWrap
                 }
               }
+
+              SegGroup {
+                height: parent.height
+
+                SegButton {
+                  first: true
+                  label: "−"
+                  minWidth: parent.height
+                  pixelSize: root.textCaption
+                  onActivated: root.stepScale(-1)
+                }
+                SegButton {
+                  label: Math.round(root.uiScale * 100) + "%"
+                  pixelSize: root.textCaption
+                  onActivated: root.resetScale()
+                }
+                SegButton {
+                  label: "+"
+                  minWidth: parent.height
+                  pixelSize: root.textCaption
+                  onActivated: root.stepScale(1)
+                }
+              }
+            }
+
+            Text {
+              anchors.left: footerRow.right
+              anchors.leftMargin: root.dp(Style.space(14))
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
+              horizontalAlignment: Text.AlignRight
+              text: strings.t("footer.keys")
+              color: root.mutedText
+              font.family: root.fontFamily
+              font.pixelSize: root.textCaption
+              elide: Text.ElideLeft
             }
           }
         }
