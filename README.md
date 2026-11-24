@@ -8,7 +8,7 @@ A fast, offline word finder and dictionary for [Omarchy](https://omarchy.org), o
 - **Look them up.** See a word's definition and synonyms side by side, from dictionaries stored on your own machine.
 - **Stay on the keyboard.** Lexicon opens as an overlay on your desktop, and `Enter` copies the chosen word to your clipboard.
 
-![The omarchy-lexicon overlay: rack search for "lexicon" sorted longest first, with the word list on the left and its WordNet definition on the right](docs/images/overlay.png)
+![The omarchy-lexicon overlay: rack search for "lexicon" sorted longest first, with the word list on the left and its WordNet definition on the right](preview.png)
 
 ## Features in detail
 
@@ -142,6 +142,7 @@ THESAURUS_DATABASE=moby-thesaurus
 omarchy-lexicon/
 ├── README.md
 ├── LICENSE
+├── preview.png
 ├── PKGBUILD
 ├── install.sh
 ├── uninstall.sh
