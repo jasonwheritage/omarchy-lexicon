@@ -56,7 +56,7 @@ jobs:
           STAGE_DIR="$(mktemp -d)"
           BUNDLE_DIR="$STAGE_DIR/acme.lexicon"
           PLUGIN_TARGET_DIR="$BUNDLE_DIR" PREFIX="$STAGE_DIR/prefix" HOME="$STAGE_DIR" ./install.sh
-          install -m644 config/default.conf "$BUNDLE_DIR/default.conf"
+          install -m644 config/default.conf "$BUNDLE_DIR/default.conf.example"
           install -m644 README.md "$BUNDLE_DIR/README.md"
           install -m644 LICENSE "$BUNDLE_DIR/LICENSE"
 

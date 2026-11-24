@@ -93,23 +93,7 @@ fi
 
 SHELL_JSON="${XDG_CONFIG_HOME}/omarchy/shell.json"
 if [ -z "${DESTDIR:-}" ] && [ -f "${SHELL_JSON}" ]; then
-  python3 -I -c "
-import json, sys
-path = sys.argv[1]
-try:
-    with open(path) as f:
-        config = json.load(f)
-except Exception:
-    sys.exit(0)
-plugin_id = 'acme.lexicon'
-plugins = config.get('plugins', [])
-if not any(isinstance(p, dict) and p.get('id') == plugin_id for p in plugins):
-    plugins.append({'id': plugin_id})
-    config['plugins'] = plugins
-    with open(path, 'w') as f:
-        json.dump(config, f, indent=2)
-        f.write('\n')
-" "${SHELL_JSON}" 2>/dev/null || true
+  python3 -I "${ROOT_DIR}/scripts/shell_json.py" add "${SHELL_JSON}" || true
   if [ -n "${SUDO_USER:-}" ] && [ "$(id -u)" -eq 0 ]; then
     restore_sudo_user_ownership "${SHELL_JSON}"
   fi

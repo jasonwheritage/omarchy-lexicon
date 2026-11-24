@@ -10,10 +10,11 @@ def _candidate_config_paths(module_dir: str) -> list[str]:
     home = os.environ.get("HOME") or os.path.expanduser("~")
     xdg_config = os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
     prefix = os.path.dirname(os.path.dirname(module_dir))
+    # The user's own config comes first, so a copy shipped with the plugin can never override it.
     return [
-        os.path.join(module_dir, "default.conf"),
         os.path.join(xdg_config, "omarchy-lexicon", "default.conf"),
         os.path.join(home, ".local", "etc", "omarchy-lexicon", "default.conf"),
+        os.path.join(module_dir, "default.conf"),
         os.path.join(prefix, "etc", "omarchy-lexicon", "default.conf"),
         DEFAULT_CONFIG_PATH,
     ]

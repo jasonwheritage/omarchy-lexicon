@@ -13,6 +13,8 @@ depends=('python' 'wl-clipboard' 'words')
 optdepends=('dictd: local dictionary server for the Meaning and Synonyms tabs'
             'wordnet-dictd: WordNet definitions (AUR)'
             'dict-moby-thesaurus: Moby Thesaurus synonyms (AUR)')
+# Keep the user's edits to the system config on upgrade (pacman writes .pacnew instead).
+backup=('etc/omarchy-lexicon/default.conf')
 source=("git+https://github.com/jasonwheritage/omarchy-lexicon.git")
 sha256sums=('SKIP')
 

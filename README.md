@@ -81,6 +81,12 @@ makepkg -si
 ./uninstall.sh
 ```
 
+This removes the plugin and its entry in `shell.json`, but keeps your configuration and saved searches. To delete those as well:
+
+```bash
+./uninstall.sh --purge
+```
+
 ## Launching the overlay
 
 Toggle the overlay from the shell command or bind it in `~/.config/hypr/bindings.lua`:
@@ -111,7 +117,11 @@ o.bind("SUPER + SHIFT + D", "Lexicon", { panel = "acme.lexicon" })
 
 ## Configuration
 
-WordNet (`wn`) and Moby (`moby-thesaurus`) are the default dictionary databases, and `/usr/share/dict/words` is the default word list. You can change them in `/etc/omarchy-lexicon/default.conf` or `~/.config/omarchy-lexicon/default.conf`:
+WordNet (`wn`) and Moby (`moby-thesaurus`) are the default dictionary databases, and `/usr/share/dict/words` is the default word list. To change them, put your settings in `~/.config/omarchy-lexicon/default.conf`. That file always takes priority, and installing, upgrading or uninstalling Lexicon never changes it. A system-wide `/etc/omarchy-lexicon/default.conf` also works; when you upgrade the Arch package, pacman keeps your edited copy and saves the new default as `default.conf.pacnew`.
+
+The installer's only change outside Lexicon's own folders is adding `{"id": "acme.lexicon"}` to the `plugins` list in `~/.config/omarchy/shell.json`; uninstalling removes it. Both keep the rest of the file and its formatting as they are, and leave it untouched if it can't be read safely.
+
+Settings:
 
 ```ini
 WORDLIST_PATH=/usr/share/dict/words
@@ -135,6 +145,8 @@ omarchy-lexicon/
 ├── PKGBUILD
 ├── install.sh
 ├── uninstall.sh
+├── scripts/
+│   └── shell_json.py
 ├── config/
 │   └── default.conf
 ├── plugins/
@@ -163,7 +175,8 @@ omarchy-lexicon/
     ├── test_installation.py
     ├── test_lexicon_core.py
     ├── test_search_gateway.py
-    └── test_session.py
+    ├── test_session.py
+    └── test_user_config.py
 ```
 
 ## Testing
